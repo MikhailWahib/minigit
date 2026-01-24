@@ -1,7 +1,11 @@
-use std::{env, fs};
+use std::fs;
+
+use crate::cli::{Cli, Commands};
+use clap::Parser;
+mod cli;
 
 fn init() {
-    let paths = [".minigit/objects/info", ".minigit/objects/pack"];
+    let paths = [".minigit/objects"];
 
     paths.iter().for_each(|p| fs::create_dir_all(p).unwrap());
 
@@ -9,11 +13,14 @@ fn init() {
 }
 
 fn main() {
-    let mut args = env::args().skip(1);
+    let cli = Cli::parse();
 
-    match args.next().as_deref() {
-        Some("init") => init(),
-        Some(cmd) => eprintln!("unknown command: {}", cmd),
-        None => eprintln!("no command provided"),
+    match &cli.command {
+        Some(Commands::Init) => init(),
+        Some(Commands::HashObject { write }) => println!("Hashing object with write = {}", write),
+        None => {
+            eprintln!("No command provided. Run with --help.");
+            std::process::exit(1);
+        }
     }
 }
