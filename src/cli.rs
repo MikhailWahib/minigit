@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 #[command(version, about, long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
-    pub command: Option<Commands>,
+    pub commands: Option<Commands>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -16,5 +16,8 @@ pub enum Commands {
         #[arg(short, long)]
         /// Store the object in minigit database
         write: bool,
+        /// Path for object
+        #[arg()]
+        object_path: String,
     },
 }

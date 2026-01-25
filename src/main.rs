@@ -1,8 +1,12 @@
-use std::fs;
-
-use crate::cli::{Cli, Commands};
+use crate::{
+    cli::{Cli, Commands},
+    commands::hash_object::hash_object,
+};
 use clap::Parser;
+use std::{error::Error, fs};
+
 mod cli;
+mod commands;
 
 fn init() {
     let paths = [".minigit/objects"];
@@ -12,15 +16,19 @@ fn init() {
     println!("repo initialized");
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
 
-    match &cli.command {
+    match &cli.commands {
         Some(Commands::Init) => init(),
-        Some(Commands::HashObject { write }) => println!("Hashing object with write = {}", write),
+        Some(Commands::HashObject { object_path, write }) => {
+            hash_object(object_path.clone(), write.clone())?;
+        }
         None => {
             eprintln!("No command provided. Run with --help.");
             std::process::exit(1);
         }
     }
+
+    Ok(())
 }
