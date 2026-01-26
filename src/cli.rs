@@ -20,4 +20,12 @@ pub enum Commands {
         #[arg()]
         object_path: String,
     },
+    CatFile {
+        #[arg(short)]
+        /// Instead of the content, show the object type
+        typ: bool,
+        /// The name of the object to show.
+        #[arg()]
+        object: String,
+    },
 }

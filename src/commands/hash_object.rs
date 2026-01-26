@@ -27,7 +27,7 @@ pub fn hash_object(object_path: String, write: bool) -> Result<String, Box<dyn E
     }
 
     let (dir, file) = hex_hash.split_at(2);
-    let obj_dir = Path::new(".git/objects").join(dir);
+    let obj_dir = Path::new(".minigit/objects").join(dir);
     let obj_path = obj_dir.join(file);
 
     let mut object = Vec::new();
@@ -38,11 +38,8 @@ pub fn hash_object(object_path: String, write: bool) -> Result<String, Box<dyn E
         create_dir_all(&obj_dir)?;
 
         let mut compressed_buf = vec![0u8; compress_bound(object.len())];
-        let (compressed, _rc) = compress_slice(
-            &mut compressed_buf,
-            object.as_ref(),
-            DeflateConfig::default(),
-        );
+        let (compressed, _rc) =
+            compress_slice(&mut compressed_buf, &mut object, DeflateConfig::default());
 
         let mut out = File::create(obj_path)?;
         out.write_all(&compressed)?;

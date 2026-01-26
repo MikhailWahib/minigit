@@ -1,6 +1,6 @@
 use crate::{
     cli::{Cli, Commands},
-    commands::hash_object::hash_object,
+    commands::{cat_file::cat_file, hash_object::hash_object},
 };
 use clap::Parser;
 use std::{error::Error, fs};
@@ -23,6 +23,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(Commands::Init) => init(),
         Some(Commands::HashObject { object_path, write }) => {
             hash_object(object_path.clone(), write.clone())?;
+        }
+        Some(Commands::CatFile { object, typ }) => {
+            cat_file(object.clone(), typ.clone())?;
         }
         None => {
             eprintln!("No command provided. Run with --help.");
