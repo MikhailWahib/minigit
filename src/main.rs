@@ -1,12 +1,12 @@
 use crate::{
     cli::{Cli, Commands},
-    commands::{cat_file::cat_file, hash_object::hash_object},
+    plumbing::commands::{cat_file, hash_object},
 };
 use clap::Parser;
 use std::{error::Error, fs};
 
 mod cli;
-mod commands;
+mod plumbing;
 
 fn init() {
     let paths = [".minigit/objects"];
