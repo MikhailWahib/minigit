@@ -2,30 +2,32 @@ use crate::{
     cli::{Cli, Commands},
     plumbing::commands::{cat_file, hash_object},
 };
+use anyhow::Result;
 use clap::Parser;
-use std::{error::Error, fs};
+use std::fs;
 
 mod cli;
 mod plumbing;
 
-fn init() {
-    let paths = [".minigit/objects"];
-
-    paths.iter().for_each(|p| fs::create_dir_all(p).unwrap());
-
+fn init() -> Result<()> {
+    let path = ".minigit/objects";
+    fs::create_dir_all(path)?;
     println!("repo initialized");
+    Ok(())
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match &cli.commands {
-        Some(Commands::Init) => init(),
+        Some(Commands::Init) => {
+            init()?;
+        }
         Some(Commands::HashObject { object_path, write }) => {
-            hash_object(object_path.clone(), write.clone())?;
+            hash_object(object_path, write)?;
         }
         Some(Commands::CatFile { object, typ }) => {
-            cat_file(object.clone(), typ.clone())?;
+            cat_file(object, typ)?;
         }
         None => {
             eprintln!("No command provided. Run with --help.");

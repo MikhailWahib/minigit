@@ -8,3 +8,4 @@ clap = { version = "4.5.54", features = ["derive"] }
 sha1 = "0.10.6"
 hex = "0.4.3"
 zlib-rs = "0.6.0"
+anyhow = "1.0.100"
