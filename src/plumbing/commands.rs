@@ -61,7 +61,7 @@ pub fn cat_file(hash: &str, typ: &bool) -> Result<String> {
         .with_context(|| format!("Could not find object with hash {}", hash))?;
     file.read_to_end(&mut compressed_buf)?;
 
-    let mut decompressed_buf = vec![0u8; compress_bound(compressed_buf.len())];
+    let mut decompressed_buf = vec![0u8; compress_bound(1024 * 16)];
 
     let (decompressed, _rc) = decompress_slice(
         &mut decompressed_buf,
