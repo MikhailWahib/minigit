@@ -28,4 +28,5 @@ pub enum Commands {
         #[arg()]
         object: String,
     },
+    LsFiles,
 }

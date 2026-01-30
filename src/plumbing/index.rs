@@ -1,5 +1,6 @@
 use super::reader::Reader;
 use anyhow::{Result, bail};
+use std::fmt;
 use std::usize;
 use std::{fs::File, io::Read};
 
@@ -130,4 +131,32 @@ struct IndexEntry {
     flags: u16,
     name: String,
     padding: u64,
+}
+
+impl fmt::Display for Index {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for entry in &self.entries {
+            writeln!(f, "{}", entry)?;
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Display for IndexEntry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let hex_sha1 = self
+            .sha1
+            .iter()
+            .map(|b| format!("{:02x}", b))
+            .collect::<String>();
+        let stage = (self.flags >> 12) & 0x3;
+
+        writeln!(f, "{}", self.name)?;
+        writeln!(f, "  ctime: {}:{}", self.ctime_secs, self.ctime_nano)?;
+        writeln!(f, "  mtime: {}:{}", self.mtime_secs, self.mtime_nano)?;
+        writeln!(f, "  dev: {}\tino: {}", self.dev, self.ino)?;
+        writeln!(f, "  uid: {}\tgid: {}", self.uid, self.gid)?;
+        writeln!(f, "  size: {}\tflags: {:x}", self.file_size, stage)?;
+        write!(f, "  mode: {:o}\tsha1: {}", self.mode, hex_sha1)
+    }
 }
