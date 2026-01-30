@@ -7,42 +7,35 @@ pub struct Reader<'a> {
 }
 
 impl<'a> Reader<'a> {
-    pub fn read_u8(&mut self) -> Result<u8> {
-        let bytes: [u8; 1] = self.buf[self.offset..self.offset + 1].try_into()?;
-        self.offset += 1;
-        Ok(u8::from_be_bytes(bytes))
-    }
-
-    pub fn read_u16(&mut self) -> Result<u16> {
-        let bytes: [u8; 2] = self.buf[self.offset..self.offset + 2].try_into()?;
-        self.offset += 2;
-        Ok(u16::from_be_bytes(bytes))
-    }
-
-    pub fn read_u32(&mut self) -> Result<u32> {
-        let bytes: [u8; 4] = self.buf[self.offset..self.offset + 4].try_into()?;
-        self.offset += 4;
-        Ok(u32::from_be_bytes(bytes))
-    }
-
-    pub fn read_bytes<const N: usize>(&mut self) -> Result<[u8; N]> {
-        let bytes: [u8; N] = self.buf[self.offset..self.offset + N].try_into()?;
-        self.offset += N;
-        Ok(bytes)
-    }
-
-    pub fn read_exact(&mut self, n: usize) -> Result<Vec<u8>> {
+    fn get_slice(&mut self, n: usize) -> Result<&'a [u8]> {
         let end = self.offset + n;
         if end > self.buf.len() {
             bail!(ErrorKind::UnexpectedEof);
         }
-
-        let bytes = self.buf[self.offset..end].to_vec();
+        let slice = &self.buf[self.offset..end];
         self.offset = end;
-        Ok(bytes)
+        Ok(slice)
+    }
+    pub fn read_u32(&mut self) -> Result<u32> {
+        let slice = self.get_slice(4)?;
+        Ok(u32::from_be_bytes(slice.try_into()?))
+    }
+
+    pub fn read_u16(&mut self) -> Result<u16> {
+        let slice = self.get_slice(2)?;
+        Ok(u16::from_be_bytes(slice.try_into()?))
+    }
+
+    pub fn read_exact(&mut self, n: usize) -> Result<&'a [u8]> {
+        self.get_slice(n)
     }
 
     pub fn skip(&mut self, n: usize) -> Result<()> {
-        self.read_exact(n).map(|_| ())
+        let end = self.offset + n;
+        if end > self.buf.len() {
+            bail!(ErrorKind::UnexpectedEof);
+        }
+        self.offset = end;
+        Ok(())
     }
 }

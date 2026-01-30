@@ -1,5 +1,3 @@
-// https://git-scm.com/docs/index-format
-
 use super::reader::Reader;
 use anyhow::{Result, bail};
 use std::usize;
@@ -13,24 +11,6 @@ pub struct Index {
     signature: [u8; 4],
     version: u32,
     entries_count: u32,
-}
-
-#[derive(Debug, Default)]
-struct IndexEntry {
-    ctime_secs: u32,
-    ctime_nano: u32,
-    mtime_secs: u32,
-    mtime_nano: u32,
-    dev: u32,
-    ino: u32,
-    mode: u32,
-    uid: u32,
-    gid: u32,
-    file_size: u32,
-    sha1: [u8; 20],
-    flags: u16,
-    name: String,
-    padding: u64,
 }
 
 impl Index {
@@ -55,7 +35,7 @@ impl Index {
         };
 
         // read the header: first 12 bytes
-        let signature = r.read_bytes::<4>()?;
+        let signature = r.read_exact(4)?.try_into()?;
         if signature != *b"DIRC" {
             bail!("invalid index signature")
         }
@@ -93,14 +73,14 @@ impl Index {
             let gid = r.read_u32()?;
             let file_size = r.read_u32()?;
 
-            let sha1: [u8; 20] = r.read_bytes::<20>()?;
+            let sha1 = r.read_exact(20)?.try_into()?;
             let flags = r.read_u16()?;
 
             // TODO: handle long names
             let name_len = (flags & 0x0FFF) as usize;
 
             let name_bytes = r.read_exact(name_len)?;
-            r.read_u8()?;
+            r.skip(1)?; // skip the NUL
 
             let name = String::from_utf8(name_bytes.into())?;
 
@@ -132,4 +112,22 @@ impl Index {
     fn new_and_write(&self, path: &str) -> Result<()> {
         todo!()
     }
+}
+
+#[derive(Debug, Default)]
+struct IndexEntry {
+    ctime_secs: u32,
+    ctime_nano: u32,
+    mtime_secs: u32,
+    mtime_nano: u32,
+    dev: u32,
+    ino: u32,
+    mode: u32,
+    uid: u32,
+    gid: u32,
+    file_size: u32,
+    sha1: [u8; 20],
+    flags: u16,
+    name: String,
+    padding: u64,
 }
