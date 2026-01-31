@@ -3,10 +3,12 @@ use hex;
 use sha1::{Digest, Sha1};
 use std::{
     fs::{File, create_dir_all},
-    io::{Read, Write},
+    io::{self, Read, Write},
     path::Path,
 };
 use zlib_rs::{DeflateConfig, InflateConfig, compress_bound, compress_slice, decompress_slice};
+
+use super::index::Index;
 
 pub fn hash_object(object_path: &str, write: &bool) -> Result<String> {
     let mut file = File::open(&object_path)
@@ -90,4 +92,19 @@ pub fn cat_file(hash: &str, typ: &bool) -> Result<String> {
     } else {
         Err(anyhow!("Invalid object data: no null separator found"))
     }
+}
+
+pub fn ls_files(index_path: &str) -> Result<()> {
+    match Index::open(index_path) {
+        Ok(idx) => println!("{}", idx),
+        Err(e)
+            if e.downcast_ref::<io::Error>()
+                .is_some_and(|e| e.kind() == io::ErrorKind::NotFound) =>
+        {
+            // ignore missing index
+        }
+        Err(e) => return Err(e),
+    }
+
+    Ok(())
 }

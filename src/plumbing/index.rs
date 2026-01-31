@@ -1,6 +1,7 @@
 use super::reader::Reader;
 use anyhow::{Result, bail};
 use std::fmt;
+use std::io::{ErrorKind, Write};
 use std::usize;
 use std::{fs::File, io::Read};
 
@@ -104,8 +105,15 @@ impl Index {
         Ok(entries)
     }
 
-    fn new_and_write(&self, path: &str) -> Result<()> {
-        todo!()
+    fn write_index(path: &str) -> Result<Self> {
+        let mut index_file = File::create_new(path)?;
+        let idx = Index::default();
+
+        index_file.write_all(&idx.signature)?;
+        index_file.write_all(&idx.version.to_be_bytes())?;
+        index_file.write_all(&idx.entries_count.to_be_bytes())?;
+
+        Ok(idx)
     }
 }
 
@@ -125,6 +133,17 @@ struct IndexEntry {
     flags: u16,
     name: String,
     padding: u64,
+}
+
+impl Default for Index {
+    fn default() -> Self {
+        Index {
+            entries: Vec::new(),
+            signature: *b"DIRC",
+            version: 2,
+            entries_count: 0,
+        }
+    }
 }
 
 impl fmt::Display for Index {

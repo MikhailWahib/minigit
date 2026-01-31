@@ -1,8 +1,8 @@
 use anyhow::Result;
-use std::fs;
+use std::{fs, io};
 
 use crate::plumbing::{
-    commands::{cat_file, hash_object},
+    commands::{cat_file, hash_object, ls_files},
     index::Index,
 };
 use clap::{Parser, Subcommand};
@@ -53,11 +53,7 @@ impl Cli {
             Some(Commands::CatFile { object, typ }) => {
                 cat_file(object, typ)?;
             }
-            Some(Commands::LsFiles) => {
-                let mut idx = Index::new();
-                idx.init(".git/index")?;
-                println!("{}", idx);
-            }
+            Some(Commands::LsFiles) => ls_files(".git/index")?,
             None => {
                 eprintln!("No command provided. Run with --help.");
                 std::process::exit(1);
