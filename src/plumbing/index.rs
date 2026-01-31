@@ -6,7 +6,7 @@ use std::{fs::File, io::Read};
 
 const SUPPORTED_VERSIONS: [u32; 3] = [2, 3, 4];
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Index {
     entries: Vec<IndexEntry>,
     signature: [u8; 4],
@@ -15,18 +15,12 @@ pub struct Index {
 }
 
 impl Index {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn open(index_path: &str) -> Result<Self> {
+        let file = File::open(index_path)?;
+        Self::read_index(file)
     }
 
-    pub fn init(&mut self, index_path: &str) -> Result<()> {
-        match File::open(index_path) {
-            Ok(file) => self.read_index(file),
-            Err(_) => self.new_and_write(index_path),
-        }
-    }
-
-    fn read_index(&mut self, mut index_file: File) -> Result<()> {
+    fn read_index(mut index_file: File) -> Result<Self> {
         let mut index_buf = Vec::new();
         index_file.read_to_end(&mut index_buf)?;
 
@@ -51,12 +45,12 @@ impl Index {
         // read next section: entries
         let entries = Self::read_entries(&mut r, entries_count)?;
 
-        self.signature = signature;
-        self.version = version;
-        self.entries_count = entries_count;
-        self.entries = entries;
-
-        Ok(())
+        Ok(Index {
+            entries,
+            signature,
+            version,
+            entries_count,
+        })
     }
 
     fn read_entries(r: &mut Reader, entries_count: u32) -> Result<Vec<IndexEntry>> {
