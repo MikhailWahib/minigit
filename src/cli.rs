@@ -1,10 +1,7 @@
 use anyhow::Result;
-use std::{fs, io};
+use std::fs;
 
-use crate::plumbing::{
-    commands::{cat_file, hash_object, ls_files},
-    index::Index,
-};
+use crate::plumbing::commands::{cat_file, hash_object, ls_files};
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
@@ -44,7 +41,7 @@ impl Cli {
             Some(Commands::Init) => {
                 // TODO: accept optional path arg from cli
                 // to choose from .minigit and .git
-                fs::create_dir_all(".git/objects")?;
+                fs::create_dir_all(".minigit/objects")?;
                 println!("repo initialized");
             }
             Some(Commands::HashObject { object_path, write }) => {
