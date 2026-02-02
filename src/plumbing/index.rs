@@ -1,9 +1,17 @@
 use super::reader::Reader;
-use anyhow::{Result, bail};
-use std::fmt;
-use std::io::{ErrorKind, Write};
+use anyhow::{Result, anyhow, bail};
+use std::ffi::OsStr;
+use std::fs::OpenOptions;
+use std::io::{Error, ErrorKind};
+use std::os::unix::fs::MetadataExt;
+use std::path::Path;
+use std::time::UNIX_EPOCH;
 use std::usize;
-use std::{fs::File, io::Read};
+use std::{fmt, fs};
+use std::{
+    fs::File,
+    io::{Read, Write},
+};
 
 const SUPPORTED_VERSIONS: [u32; 3] = [2, 3, 4];
 
@@ -16,14 +24,11 @@ pub struct Index {
 }
 
 impl Index {
-    pub fn open(index_path: &str) -> Result<Self> {
-        let file = File::open(index_path)?;
-        Self::read_index(file)
-    }
+    pub fn read(path: &Path) -> Result<Self> {
+        let mut idx_file = File::open(path)?;
 
-    fn read_index(mut index_file: File) -> Result<Self> {
         let mut index_buf = Vec::new();
-        index_file.read_to_end(&mut index_buf)?;
+        idx_file.read_to_end(&mut index_buf)?;
 
         let mut r = Reader {
             buf: &index_buf,
@@ -105,19 +110,26 @@ impl Index {
         Ok(entries)
     }
 
-    fn write_index(path: &str) -> Result<Self> {
-        let mut index_file = File::create_new(path)?;
-        let idx = Index::default();
+    pub fn write(&self, path: &str) -> Result<()> {
+        let mut idx_file = File::create_new(path)?;
 
-        index_file.write_all(&idx.signature)?;
-        index_file.write_all(&idx.version.to_be_bytes())?;
-        index_file.write_all(&idx.entries_count.to_be_bytes())?;
+        idx_file.write_all(&self.signature)?;
+        idx_file.write_all(&self.version.to_be_bytes())?;
+        idx_file.write_all(&self.entries_count.to_be_bytes())?;
 
-        Ok(idx)
+        self.write_entries(&mut idx_file)?;
+        Ok(())
+    }
+
+    fn write_entries<W: Write>(&self, w: &mut W) -> Result<()> {
+        for entry in &self.entries {
+            entry.write_to(w)?;
+        }
+        Ok(())
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, PartialEq, Eq)]
 struct IndexEntry {
     ctime_secs: u32,
     ctime_nano: u32,
@@ -132,17 +144,67 @@ struct IndexEntry {
     sha1: [u8; 20],
     flags: u16,
     name: String,
-    padding: u64,
+    padding: u8,
 }
 
-impl Default for Index {
-    fn default() -> Self {
-        Index {
-            entries: Vec::new(),
-            signature: *b"DIRC",
-            version: 2,
-            entries_count: 0,
-        }
+impl IndexEntry {
+    fn new(path: &Path, sha1: [u8; 20]) -> Result<Self> {
+        let metadata = fs::metadata(path)?;
+        let ctime_secs = metadata.ctime() as u32;
+        let ctime_nano = metadata.ctime_nsec() as u32;
+        let mtime_secs = metadata.modified()?.duration_since(UNIX_EPOCH)?.as_secs() as u32;
+        let mtime_nano = metadata.modified()?.duration_since(UNIX_EPOCH)?.as_nanos() as u32;
+        let dev = metadata.dev() as u32;
+        let ino = metadata.ino() as u32;
+        let mode = metadata.mode();
+        let uid = metadata.uid();
+        let gid = metadata.gid();
+        let name = path
+            .to_str()
+            .ok_or_else(|| anyhow!("Path is not valid UTF-8"))?;
+        let file_size = metadata.size().try_into()?;
+        let flags = name.len() as u16;
+        let entry_len = 62 + name.len() + 1;
+        let padding = ((8 - (entry_len % 8)) % 8) as u8;
+
+        Ok(IndexEntry {
+            ctime_secs,
+            ctime_nano,
+            mtime_secs,
+            mtime_nano,
+            dev,
+            ino,
+            mode,
+            uid,
+            gid,
+            file_size,
+            sha1,
+            flags,
+            name: name.into(),
+            padding,
+        })
+    }
+
+    fn write_to<W: Write>(&self, w: &mut W) -> Result<()> {
+        w.write_all(&self.ctime_secs.to_be_bytes())?;
+        w.write_all(&self.ctime_nano.to_be_bytes())?;
+        w.write_all(&self.mtime_secs.to_be_bytes())?;
+        w.write_all(&self.mtime_nano.to_be_bytes())?;
+        w.write_all(&self.dev.to_be_bytes())?;
+        w.write_all(&self.ino.to_be_bytes())?;
+        w.write_all(&self.mode.to_be_bytes())?;
+        w.write_all(&self.uid.to_be_bytes())?;
+        w.write_all(&self.gid.to_be_bytes())?;
+        w.write_all(&self.file_size.to_be_bytes())?;
+        w.write_all(&self.sha1)?;
+        w.write_all(&self.flags.to_be_bytes())?;
+        w.write_all(self.name.as_bytes())?;
+        w.write_all(&[0])?;
+
+        let padding = [0u8; 8];
+        w.write_all(&padding[..self.padding as usize])?;
+
+        Ok(())
     }
 }
 

@@ -1,5 +1,5 @@
 use anyhow::Result;
-use std::fs;
+use std::{fs, path::Path};
 
 use crate::plumbing::commands::{cat_file, hash_object, ls_files};
 use clap::{Parser, Subcommand};
@@ -50,7 +50,7 @@ impl Cli {
             Some(Commands::CatFile { object, typ }) => {
                 cat_file(object, typ)?;
             }
-            Some(Commands::LsFiles) => ls_files(".git/index")?,
+            Some(Commands::LsFiles) => ls_files(Path::new(".minigit/index"))?,
             None => {
                 eprintln!("No command provided. Run with --help.");
                 std::process::exit(1);
