@@ -15,7 +15,7 @@ use std::{
 
 const SUPPORTED_VERSIONS: [u32; 3] = [2, 3, 4];
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Index {
     entries: Vec<IndexEntry>,
     signature: [u8; 4],
@@ -129,7 +129,7 @@ impl Index {
     }
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, PartialEq, Eq, Clone)]
 struct IndexEntry {
     ctime_secs: u32,
     ctime_nano: u32,
@@ -233,5 +233,53 @@ impl fmt::Display for IndexEntry {
         writeln!(f, "  uid: {}\tgid: {}", self.uid, self.gid)?;
         writeln!(f, "  size: {}\tflags: {:x}", self.file_size, stage)?;
         write!(f, "  mode: {:o}\tsha1: {}", self.mode, hex_sha1)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::plumbing::index::IndexEntry;
+
+    use super::super::index::Index;
+    use std::fs::File;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_write_and_read() {
+        let temp_dir = TempDir::new().unwrap();
+        let output_path = temp_dir.path().join("output");
+        let test_file_path1 = temp_dir.path().join("test1.txt");
+        let test_file_path2 = temp_dir.path().join("test2.txt");
+
+        File::create_new(test_file_path1.clone()).unwrap();
+        File::create_new(test_file_path2.clone()).unwrap();
+
+        let entry1 = IndexEntry::new(
+            test_file_path1.as_path(),
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        )
+        .unwrap();
+
+        let entry2 = IndexEntry::new(
+            test_file_path2.as_path(),
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        )
+        .unwrap();
+
+        let index = Index {
+            signature: *b"DIRC",
+            version: 2,
+            entries_count: 2,
+            entries: vec![entry1.clone(), entry2.clone()],
+        };
+
+        index.write(output_path.to_str().unwrap()).unwrap();
+        let read_index = Index::read(&output_path).unwrap();
+
+        assert_eq!(read_index.signature, *b"DIRC");
+        assert_eq!(read_index.version, 2);
+        assert_eq!(read_index.entries, vec![entry1, entry2]);
+
+        temp_dir.close().unwrap();
     }
 }
