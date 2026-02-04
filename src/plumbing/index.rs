@@ -1,8 +1,6 @@
 use super::reader::Reader;
-use anyhow::{Result, anyhow, bail};
-use std::ffi::OsStr;
-use std::fs::OpenOptions;
-use std::io::{Error, ErrorKind};
+use anyhow::{Result, bail};
+use std::collections::BTreeMap;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
@@ -13,18 +11,25 @@ use std::{
     io::{Read, Write},
 };
 
+const SIGNATURE: [u8; 4] = *b"DIRC";
+const DEFAULT_VERSION: u32 = 2;
 const SUPPORTED_VERSIONS: [u32; 3] = [2, 3, 4];
 
 #[derive(Debug, Default)]
 pub struct Index {
-    entries: Vec<IndexEntry>,
-    signature: [u8; 4],
     version: u32,
-    entries_count: u32,
+    entries: BTreeMap<String, IndexEntry>,
 }
 
 impl Index {
-    pub fn read(path: &Path) -> Result<Self> {
+    pub fn new() -> Self {
+        Self {
+            entries: BTreeMap::new(),
+            version: DEFAULT_VERSION,
+        }
+    }
+
+    pub fn read(path: impl AsRef<Path>) -> Result<Self> {
         let mut idx_file = File::open(path)?;
 
         let mut index_buf = Vec::new();
@@ -36,8 +41,8 @@ impl Index {
         };
 
         // read the header: first 12 bytes
-        let signature = r.read_exact(4)?.try_into()?;
-        if signature != *b"DIRC" {
+        let signature: [u8; 4] = r.read_exact(4)?.try_into()?;
+        if signature != SIGNATURE {
             bail!("invalid index signature")
         }
 
@@ -51,16 +56,11 @@ impl Index {
         // read next section: entries
         let entries = Self::read_entries(&mut r, entries_count)?;
 
-        Ok(Index {
-            entries,
-            signature,
-            version,
-            entries_count,
-        })
+        Ok(Index { version, entries })
     }
 
-    fn read_entries(r: &mut Reader, entries_count: u32) -> Result<Vec<IndexEntry>> {
-        let mut entries = Vec::with_capacity(entries_count as usize);
+    fn read_entries(r: &mut Reader, entries_count: u32) -> Result<BTreeMap<String, IndexEntry>> {
+        let mut entries = BTreeMap::new();
 
         for _ in 0..entries_count as usize {
             let ctime_secs = r.read_u32()?;
@@ -89,43 +89,28 @@ impl Index {
             let padding = (8 - (entry_len % 8)) % 8;
             r.skip(padding)?;
 
-            entries.push(IndexEntry {
-                ctime_secs,
-                ctime_nano,
-                mtime_secs,
-                mtime_nano,
-                dev,
-                ino,
-                mode,
-                uid,
-                gid,
-                file_size,
-                sha1,
-                flags,
-                name,
-                padding: padding.try_into()?,
-            });
+            entries.insert(
+                name.clone(),
+                IndexEntry {
+                    ctime_secs,
+                    ctime_nano,
+                    mtime_secs,
+                    mtime_nano,
+                    dev,
+                    ino,
+                    mode,
+                    uid,
+                    gid,
+                    file_size,
+                    sha1,
+                    flags,
+                    name,
+                    padding: padding.try_into()?,
+                },
+            );
         }
 
         Ok(entries)
-    }
-
-    pub fn write(&self, path: &str) -> Result<()> {
-        let mut idx_file = File::create_new(path)?;
-
-        idx_file.write_all(&self.signature)?;
-        idx_file.write_all(&self.version.to_be_bytes())?;
-        idx_file.write_all(&self.entries_count.to_be_bytes())?;
-
-        self.write_entries(&mut idx_file)?;
-        Ok(())
-    }
-
-    fn write_entries<W: Write>(&self, w: &mut W) -> Result<()> {
-        for entry in &self.entries {
-            entry.write_to(w)?;
-        }
-        Ok(())
     }
 }
 
@@ -148,7 +133,7 @@ struct IndexEntry {
 }
 
 impl IndexEntry {
-    fn new(path: &Path, sha1: [u8; 20]) -> Result<Self> {
+    fn new(path: &str, sha1: [u8; 20]) -> Result<Self> {
         let metadata = fs::metadata(path)?;
         let ctime_secs = metadata.ctime() as u32;
         let ctime_nano = metadata.ctime_nsec() as u32;
@@ -159,12 +144,9 @@ impl IndexEntry {
         let mode = metadata.mode();
         let uid = metadata.uid();
         let gid = metadata.gid();
-        let name = path
-            .to_str()
-            .ok_or_else(|| anyhow!("Path is not valid UTF-8"))?;
         let file_size = metadata.size().try_into()?;
-        let flags = name.len() as u16;
-        let entry_len = 62 + name.len() + 1;
+        let flags = path.len() as u16;
+        let entry_len = 62 + path.len() + 1;
         let padding = ((8 - (entry_len % 8)) % 8) as u8;
 
         Ok(IndexEntry {
@@ -180,7 +162,7 @@ impl IndexEntry {
             file_size,
             sha1,
             flags,
-            name: name.into(),
+            name: path.into(),
             padding,
         })
     }
@@ -211,7 +193,7 @@ impl IndexEntry {
 impl fmt::Display for Index {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for entry in &self.entries {
-            writeln!(f, "{}", entry)?;
+            writeln!(f, "{}", entry.1)?;
         }
         Ok(())
     }
@@ -233,53 +215,5 @@ impl fmt::Display for IndexEntry {
         writeln!(f, "  uid: {}\tgid: {}", self.uid, self.gid)?;
         writeln!(f, "  size: {}\tflags: {:x}", self.file_size, stage)?;
         write!(f, "  mode: {:o}\tsha1: {}", self.mode, hex_sha1)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::plumbing::index::IndexEntry;
-
-    use super::super::index::Index;
-    use std::fs::File;
-    use tempfile::TempDir;
-
-    #[test]
-    fn test_write_and_read() {
-        let temp_dir = TempDir::new().unwrap();
-        let output_path = temp_dir.path().join("output");
-        let test_file_path1 = temp_dir.path().join("test1.txt");
-        let test_file_path2 = temp_dir.path().join("test2.txt");
-
-        File::create_new(test_file_path1.clone()).unwrap();
-        File::create_new(test_file_path2.clone()).unwrap();
-
-        let entry1 = IndexEntry::new(
-            test_file_path1.as_path(),
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        )
-        .unwrap();
-
-        let entry2 = IndexEntry::new(
-            test_file_path2.as_path(),
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-        )
-        .unwrap();
-
-        let index = Index {
-            signature: *b"DIRC",
-            version: 2,
-            entries_count: 2,
-            entries: vec![entry1.clone(), entry2.clone()],
-        };
-
-        index.write(output_path.to_str().unwrap()).unwrap();
-        let read_index = Index::read(&output_path).unwrap();
-
-        assert_eq!(read_index.signature, *b"DIRC");
-        assert_eq!(read_index.version, 2);
-        assert_eq!(read_index.entries, vec![entry1, entry2]);
-
-        temp_dir.close().unwrap();
     }
 }

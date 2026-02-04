@@ -94,8 +94,8 @@ pub fn cat_file(hash: &str, typ: &bool) -> Result<String> {
     }
 }
 
-pub fn ls_files(index_path: &Path) -> Result<()> {
-    match Index::read(index_path) {
+pub fn ls_files(index_path: impl AsRef<Path>) -> Result<()> {
+    match Index::read(index_path.as_ref().to_str().unwrap()) {
         Ok(idx) => println!("{}", idx),
         Err(e)
             if e.downcast_ref::<io::Error>()
