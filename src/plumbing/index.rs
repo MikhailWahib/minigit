@@ -1,6 +1,7 @@
 use super::reader::Reader;
 use anyhow::{Result, bail};
 use std::collections::BTreeMap;
+use std::fs::OpenOptions;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
@@ -112,6 +113,35 @@ impl Index {
 
         Ok(entries)
     }
+
+    pub fn write(&self, path: impl AsRef<Path>) -> Result<()> {
+        let mut idx_file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open(path)?;
+
+        idx_file.write_all(&SIGNATURE)?;
+        idx_file.write_all(&self.version.to_be_bytes())?;
+        idx_file.write_all(&(self.entries.len() as u32).to_be_bytes())?;
+
+        for entry in &self.entries {
+            entry.1.write_to(&mut idx_file)?;
+        }
+
+        idx_file.flush()?;
+        idx_file.sync_all()?;
+
+        Ok(())
+    }
+
+    pub fn add(&mut self, path: &str, sha1: [u8; 20], mode: u32) -> Result<()> {
+        let new_entry = IndexEntry::new(path, sha1, mode)?;
+
+        self.entries.insert(path.into(), new_entry);
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
@@ -133,7 +163,7 @@ struct IndexEntry {
 }
 
 impl IndexEntry {
-    fn new(path: &str, sha1: [u8; 20]) -> Result<Self> {
+    fn new(path: &str, sha1: [u8; 20], mode: u32) -> Result<Self> {
         let metadata = fs::metadata(path)?;
         let ctime_secs = metadata.ctime() as u32;
         let ctime_nano = metadata.ctime_nsec() as u32;
@@ -141,7 +171,6 @@ impl IndexEntry {
         let mtime_nano = metadata.modified()?.duration_since(UNIX_EPOCH)?.as_nanos() as u32;
         let dev = metadata.dev() as u32;
         let ino = metadata.ino() as u32;
-        let mode = metadata.mode();
         let uid = metadata.uid();
         let gid = metadata.gid();
         let file_size = metadata.size().try_into()?;

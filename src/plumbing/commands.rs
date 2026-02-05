@@ -108,3 +108,25 @@ pub fn ls_files(index_path: impl AsRef<Path>) -> Result<()> {
 
     Ok(())
 }
+
+pub fn update_index(mode: &String, object: &String, file: &String) -> Result<()> {
+    let mut idx = match Index::read(".minigit/index") {
+        Ok(i) => i,
+        Err(e)
+            if e.downcast_ref::<io::Error>()
+                .is_some_and(|e| e.kind() == io::ErrorKind::NotFound) =>
+        {
+            Index::new()
+        }
+        Err(e) => return Err(e),
+    };
+
+    let mode: u32 = mode.parse()?;
+    let mut sha1 = [0u8; 20];
+    hex::decode_to_slice(object, &mut sha1)?;
+
+    idx.add(file, sha1, mode)?;
+    idx.write(".minigit/index")?;
+
+    Ok(())
+}
