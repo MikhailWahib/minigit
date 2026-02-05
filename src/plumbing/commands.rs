@@ -10,7 +10,9 @@ use zlib_rs::{DeflateConfig, InflateConfig, compress_bound, compress_slice, deco
 
 use super::index::Index;
 
-pub fn hash_object(object_path: &str, write: &bool) -> Result<String> {
+pub fn hash_object(object_path: &str, write: &bool, root_dir: &str) -> Result<String> {
+    let objects_path = format!("{}/objects", root_dir);
+
     let mut file = File::open(&object_path)
         .with_context(|| format!("Failed to open object at {}", object_path))?;
 
@@ -30,7 +32,7 @@ pub fn hash_object(object_path: &str, write: &bool) -> Result<String> {
     }
 
     let (dir, file_name) = hex_hash.split_at(2);
-    let obj_dir = Path::new(".minigit/objects").join(dir);
+    let obj_dir = Path::new(objects_path.as_str()).join(dir);
     let obj_path = obj_dir.join(file_name);
 
     let mut object = Vec::new();
@@ -52,11 +54,13 @@ pub fn hash_object(object_path: &str, write: &bool) -> Result<String> {
     Ok(hex_hash)
 }
 
-pub fn cat_file(hash: &str, typ: &bool) -> Result<String> {
+pub fn cat_file(hash: &str, typ: &bool, root_dir: &str) -> Result<String> {
+    let objects_path = format!("{}/objects", root_dir);
+
     let (dir, file_name) = hash.split_at(2);
 
     let mut compressed_buf: Vec<u8> = Vec::new();
-    let file_dir = Path::new(".minigit/objects").join(dir);
+    let file_dir = Path::new(objects_path.as_str()).join(dir);
     let file_path = file_dir.join(file_name);
 
     let mut file = File::open(&file_path)
@@ -94,8 +98,10 @@ pub fn cat_file(hash: &str, typ: &bool) -> Result<String> {
     }
 }
 
-pub fn ls_files(index_path: impl AsRef<Path>) -> Result<()> {
-    match Index::read(index_path.as_ref().to_str().unwrap()) {
+pub fn ls_files(root_dir: &str) -> Result<()> {
+    let idx_path = format!("{}/index", root_dir);
+
+    match Index::read(idx_path) {
         Ok(idx) => println!("{}", idx),
         Err(e)
             if e.downcast_ref::<io::Error>()
@@ -109,8 +115,9 @@ pub fn ls_files(index_path: impl AsRef<Path>) -> Result<()> {
     Ok(())
 }
 
-pub fn update_index(mode: &String, object: &String, file: &String) -> Result<()> {
-    let mut idx = match Index::read(".minigit/index") {
+pub fn update_index(mode: &String, object: &String, file: &String, root_dir: &str) -> Result<()> {
+    let idx_path = format!("{}/index", root_dir);
+    let mut idx = match Index::read(&idx_path) {
         Ok(i) => i,
         Err(e)
             if e.downcast_ref::<io::Error>()
@@ -126,7 +133,7 @@ pub fn update_index(mode: &String, object: &String, file: &String) -> Result<()>
     hex::decode_to_slice(object, &mut sha1)?;
 
     idx.add(file, sha1, mode)?;
-    idx.write(".minigit/index")?;
+    idx.write(idx_path)?;
 
     Ok(())
 }

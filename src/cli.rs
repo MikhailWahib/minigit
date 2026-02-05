@@ -1,14 +1,26 @@
 use anyhow::Result;
 use std::{fs, path::Path};
 
-use crate::plumbing::commands::{cat_file, hash_object, ls_files, update_index};
+use crate::plumbing::commands::{cat_file, hash_object, ls_files, update_index, write_tree};
 use clap::{Parser, Subcommand};
+
+fn get_root_dir(git_mode: bool) -> &'static str {
+    if git_mode {
+        return ".git";
+    }
+
+    ".minigit"
+}
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Cli {
+    /// Use .git as a root dir instead of .minigit. Used to test on real git repos
+    #[arg(long, short, global = true)]
+    git_mode: bool,
+
     #[command(subcommand)]
-    pub commands: Commands,
+    commands: Commands,
 }
 
 #[derive(Subcommand, Debug)]
@@ -44,26 +56,28 @@ pub enum Commands {
 
 impl Cli {
     pub fn run(&self) -> Result<()> {
+        let root_dir = get_root_dir(self.git_mode);
+
         match &self.commands {
             Commands::Init => {
                 // TODO: accept optional path arg from cli
                 // to choose from .minigit and .git
-                fs::create_dir_all(".minigit/objects")?;
+                fs::create_dir_all(format!("{}/objects", root_dir))?;
                 println!("repo initialized");
             }
             Commands::HashObject { object_path, write } => {
-                hash_object(object_path, write)?;
+                hash_object(object_path, write, root_dir)?;
             }
             Commands::CatFile { object, typ } => {
-                cat_file(object, typ)?;
+                cat_file(object, typ, root_dir)?;
             }
-            Commands::LsFiles => ls_files(Path::new(".minigit/index"))?,
+            Commands::LsFiles => ls_files(root_dir)?,
             Commands::UpdateIndex { cacheinfo } => {
                 let [mode, sha, path] = &cacheinfo[..] else {
                     unreachable!("Clap ensures 3 args")
                 };
 
-                update_index(mode, sha, path)?;
+                update_index(mode, sha, path, root_dir)?;
             }
         }
         Ok(())
