@@ -142,23 +142,27 @@ impl Index {
 
         Ok(())
     }
+
+    pub fn entries(&self) -> Vec<&IndexEntry> {
+        self.entries.values().collect()
+    }
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
-struct IndexEntry {
+pub struct IndexEntry {
     ctime_secs: u32,
     ctime_nano: u32,
     mtime_secs: u32,
     mtime_nano: u32,
     dev: u32,
     ino: u32,
-    mode: u32,
+    pub mode: u32,
     uid: u32,
     gid: u32,
     file_size: u32,
-    sha1: [u8; 20],
+    pub sha1: [u8; 20],
     flags: u16,
-    name: String,
+    pub name: String,
     padding: u8,
 }
 

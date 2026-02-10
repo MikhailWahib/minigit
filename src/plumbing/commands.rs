@@ -1,101 +1,50 @@
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result};
 use hex;
-use sha1::{Digest, Sha1};
 use std::{
-    fs::{File, create_dir_all},
-    io::{self, Read, Write},
-    path::Path,
+    fs::File,
+    io::{self, Read},
 };
-use zlib_rs::{DeflateConfig, InflateConfig, compress_bound, compress_slice, decompress_slice};
 
+use super::core::{format_tree, hash_content, read_object, write_object, write_tree_recursive};
 use super::index::Index;
+use crate::plumbing::dir_tree::DirTree;
 
-pub fn hash_object(object_path: &str, write: &bool, root_dir: &str) -> Result<String> {
-    let objects_path = format!("{}/objects", root_dir);
-
+pub fn hash_object(object_path: &str, write: &bool, root_dir: &str) -> Result<()> {
     let mut file = File::open(&object_path)
         .with_context(|| format!("Failed to open object at {}", object_path))?;
 
     let mut content = Vec::new();
     file.read_to_end(&mut content)?;
 
-    let header = format!("blob {}\0", content.len());
-
-    let mut hasher = Sha1::new();
-    hasher.update(header.as_bytes());
-    hasher.update(&content);
-    let hash = hasher.finalize();
-    let hex_hash = hex::encode(hash);
-
     if !write {
-        return Ok(hex_hash);
+        let hex_hash = hash_content(&content, "blob");
+        println!("{hex_hash}");
+        return Ok(());
     }
 
-    let (dir, file_name) = hex_hash.split_at(2);
-    let obj_dir = Path::new(objects_path.as_str()).join(dir);
-    let obj_path = obj_dir.join(file_name);
-
-    let mut object = Vec::new();
-    object.extend_from_slice(header.as_bytes());
-    object.extend_from_slice(&content);
-
-    if !obj_path.exists() {
-        create_dir_all(&obj_dir)?;
-
-        let mut compressed_buf = vec![0u8; compress_bound(object.len())];
-        let (compressed, _rc) =
-            compress_slice(&mut compressed_buf, &mut object, DeflateConfig::default());
-
-        let mut out = File::create(&obj_path)?;
-        out.write_all(compressed)?;
-    }
-
+    let hex_hash = write_object(&content, "blob", format!("{}/objects", root_dir).as_str())?;
     println!("{hex_hash}");
-    Ok(hex_hash)
+
+    Ok(())
 }
 
 pub fn cat_file(hash: &str, typ: &bool, root_dir: &str) -> Result<String> {
-    let objects_path = format!("{}/objects", root_dir);
+    let (obj_type, body) = read_object(hash, format!("{}/objects", root_dir))?;
 
-    let (dir, file_name) = hash.split_at(2);
-
-    let mut compressed_buf: Vec<u8> = Vec::new();
-    let file_dir = Path::new(objects_path.as_str()).join(dir);
-    let file_path = file_dir.join(file_name);
-
-    let mut file = File::open(&file_path)
-        .with_context(|| format!("Could not find object with hash {}", hash))?;
-    file.read_to_end(&mut compressed_buf)?;
-
-    let mut decompressed_buf = vec![0u8; compress_bound(1024 * 16)];
-
-    let (decompressed, _rc) = decompress_slice(
-        &mut decompressed_buf,
-        &mut compressed_buf,
-        InflateConfig::default(),
-    );
-
-    if let Some(pos) = decompressed.iter().position(|&b| b == 0) {
-        let header = &decompressed[..pos];
-        let body = &decompressed[pos + 1..];
-
-        let header_str = std::str::from_utf8(header)?;
-
-        if *typ {
-            let typ_name = header_str
-                .split(' ')
-                .next()
-                .ok_or_else(|| anyhow!("Malformed object header"))?;
-            println!("{typ_name}");
-            return Ok(typ_name.to_string());
-        }
-
-        let body_str = std::str::from_utf8(body).unwrap_or("<binary>");
-        println!("{body_str}");
-        Ok(body_str.to_string())
-    } else {
-        Err(anyhow!("Invalid object data: no null separator found"))
+    if *typ {
+        println!("{obj_type}");
+        return Ok(obj_type);
     }
+
+    if obj_type == "tree" {
+        let formatted = format_tree(&body)?;
+        print!("{}", formatted);
+        return Ok(formatted);
+    }
+
+    let body_str = std::str::from_utf8(&body).unwrap_or("<binary>");
+    println!("{body_str}");
+    Ok(body_str.to_string())
 }
 
 pub fn ls_files(root_dir: &str) -> Result<()> {
@@ -136,4 +85,15 @@ pub fn update_index(mode: &String, object: &String, file: &String, root_dir: &st
     idx.write(idx_path)?;
 
     Ok(())
+}
+
+pub fn write_tree(root_dir: &str) -> Result<String> {
+    let idx = Index::read(format!("{}/index", root_dir))?;
+    let entries = idx.entries();
+    let idx_dir_tree = DirTree::from_idx_entries(entries);
+
+    let root_hash = write_tree_recursive(&idx_dir_tree, format!("{root_dir}/objects").as_str())?;
+
+    println!("{}", root_hash);
+    Ok(root_hash)
 }

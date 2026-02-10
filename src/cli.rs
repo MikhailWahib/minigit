@@ -1,8 +1,9 @@
 use anyhow::Result;
-use std::{fs, path::Path};
+use std::fs;
+
+use clap::{Parser, Subcommand};
 
 use crate::plumbing::commands::{cat_file, hash_object, ls_files, update_index, write_tree};
-use clap::{Parser, Subcommand};
 
 fn get_root_dir(git_mode: bool) -> &'static str {
     if git_mode {
@@ -38,8 +39,8 @@ pub enum Commands {
     },
     /// Prints out the content of a given file in minigit database
     CatFile {
-        #[arg(short)]
         /// Instead of the content, show the object type
+        #[arg(short)]
         typ: bool,
         /// The name of the object to show.
         #[arg()]
@@ -52,6 +53,8 @@ pub enum Commands {
         #[arg(long, num_args = 3, value_names = ["MODE", "OBJECT", "FILE"])]
         cacheinfo: Vec<String>,
     },
+    /// Create a tree object from the current index
+    WriteTree,
 }
 
 impl Cli {
@@ -60,8 +63,6 @@ impl Cli {
 
         match &self.commands {
             Commands::Init => {
-                // TODO: accept optional path arg from cli
-                // to choose from .minigit and .git
                 fs::create_dir_all(format!("{}/objects", root_dir))?;
                 println!("repo initialized");
             }
@@ -78,6 +79,9 @@ impl Cli {
                 };
 
                 update_index(mode, sha, path, root_dir)?;
+            }
+            Commands::WriteTree => {
+                write_tree(root_dir)?;
             }
         }
         Ok(())
