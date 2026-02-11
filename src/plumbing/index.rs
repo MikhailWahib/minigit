@@ -1,5 +1,6 @@
 use super::reader::Reader;
 use anyhow::{Result, bail};
+use sha1::{Digest, Sha1};
 use std::collections::BTreeMap;
 use std::fs::OpenOptions;
 use std::os::unix::fs::MetadataExt;
@@ -36,8 +37,22 @@ impl Index {
         let mut index_buf = Vec::new();
         idx_file.read_to_end(&mut index_buf)?;
 
+        if index_buf.len() < 20 {
+            bail!("Index file too short");
+        }
+
+        let (content, sha1) = index_buf.split_at(index_buf.len() - 20);
+
+        let mut hasher = Sha1::new();
+        hasher.update(content);
+        let calculated_sha1: [u8; 20] = hasher.finalize().into();
+
+        if sha1 != calculated_sha1 {
+            bail!("Index file checksum mismatch");
+        }
+
         let mut r = Reader {
-            buf: &index_buf,
+            buf: content,
             offset: 0,
         };
 
@@ -119,15 +134,25 @@ impl Index {
             .read(true)
             .write(true)
             .create(true)
+            .truncate(true)
             .open(path)?;
 
-        idx_file.write_all(&SIGNATURE)?;
-        idx_file.write_all(&self.version.to_be_bytes())?;
-        idx_file.write_all(&(self.entries.len() as u32).to_be_bytes())?;
+        let mut content = Vec::new();
+
+        content.write_all(&SIGNATURE)?;
+        content.write_all(&self.version.to_be_bytes())?;
+        content.write_all(&(self.entries.len() as u32).to_be_bytes())?;
 
         for entry in &self.entries {
-            entry.1.write_to(&mut idx_file)?;
+            entry.1.write_to(&mut content)?;
         }
+
+        let mut hasher = Sha1::new();
+        hasher.update(&content);
+        let sha1: [u8; 20] = hasher.finalize().into();
+
+        idx_file.write_all(&content)?;
+        idx_file.write_all(&sha1)?;
 
         idx_file.flush()?;
         idx_file.sync_all()?;
