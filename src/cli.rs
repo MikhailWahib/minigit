@@ -61,25 +61,25 @@ pub enum Commands {
 use crate::repository::Repository;
 
 impl Cli {
-    pub fn run(&self) -> Result<()> {
+    pub fn run(self) -> Result<()> {
         let root_dir = get_root_dir(self.git_mode);
         let repo = Repository::new(root_dir);
 
-        match &self.commands {
+        match self.commands {
             Commands::Init => {
                 fs::create_dir_all(repo.objects_dir())?;
                 println!("repo initialized");
             }
             Commands::HashObject { object_path, write } => {
-                hash_object(object_path, *write, &repo)?;
+                hash_object(&object_path, write, &repo)?;
             }
             Commands::CatFile { object, typ } => {
-                cat_file(object, *typ, &repo)?;
+                cat_file(&object, typ, &repo)?;
             }
             Commands::LsFiles => ls_files(&repo)?,
             Commands::UpdateIndex { mode, object, path } => {
                 let mode_u32 = mode.parse::<u32>()?;
-                update_index(mode_u32, object, path, &repo)?;
+                update_index(mode_u32, &object, path, &repo)?;
             }
 
             Commands::WriteTree => {

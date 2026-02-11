@@ -160,10 +160,10 @@ impl Index {
         Ok(())
     }
 
-    pub fn add(&mut self, path: &str, sha1: [u8; 20], mode: u32) -> Result<()> {
+    pub fn add(&mut self, path: String, sha1: [u8; 20], mode: u32) -> Result<()> {
         let new_entry = IndexEntry::new(path, sha1, mode)?;
 
-        self.entries.insert(path.into(), new_entry);
+        self.entries.insert(new_entry.name.clone(), new_entry);
 
         Ok(())
     }
@@ -192,8 +192,8 @@ pub struct IndexEntry {
 }
 
 impl IndexEntry {
-    fn new(path: &str, sha1: [u8; 20], mode: u32) -> Result<Self> {
-        let metadata = fs::metadata(path)?;
+    fn new(path: String, sha1: [u8; 20], mode: u32) -> Result<Self> {
+        let metadata = fs::metadata(&path)?;
         let ctime_secs = metadata.ctime() as u32;
         let ctime_nano = metadata.ctime_nsec() as u32;
         let mtime_secs = metadata.modified()?.duration_since(UNIX_EPOCH)?.as_secs() as u32;
@@ -220,7 +220,7 @@ impl IndexEntry {
             file_size,
             sha1,
             flags,
-            name: path.into(),
+            name: path,
             padding,
         })
     }
