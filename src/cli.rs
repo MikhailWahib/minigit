@@ -50,8 +50,9 @@ pub enum Commands {
     LsFiles,
     /// Updates the index
     UpdateIndex {
-        #[arg(long, num_args = 3, value_names = ["MODE", "OBJECT", "FILE"])]
-        cacheinfo: Vec<String>,
+        mode: String,
+        object: String,
+        path: String,
     },
     /// Create a tree object from the current index
     WriteTree,
@@ -76,14 +77,11 @@ impl Cli {
                 cat_file(object, *typ, &repo)?;
             }
             Commands::LsFiles => ls_files(&repo)?,
-            Commands::UpdateIndex { cacheinfo } => {
-                let [mode, sha, path] = &cacheinfo[..] else {
-                    unreachable!("Clap ensures 3 args")
-                };
-
+            Commands::UpdateIndex { mode, object, path } => {
                 let mode_u32 = mode.parse::<u32>()?;
-                update_index(mode_u32, sha, path, &repo)?;
+                update_index(mode_u32, object, path, &repo)?;
             }
+
             Commands::WriteTree => {
                 write_tree(&repo)?;
             }
