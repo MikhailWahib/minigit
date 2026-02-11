@@ -63,12 +63,7 @@ pub fn ls_files(repo: &Repository) -> Result<()> {
     Ok(())
 }
 
-pub fn update_index(
-    mode: &String,
-    object: &String,
-    file: &String,
-    repo: &Repository,
-) -> Result<()> {
+pub fn update_index(mode: u32, object: &str, file: &str, repo: &Repository) -> Result<()> {
     let idx_path = repo.index_path();
     let mut idx = match Index::read(&idx_path) {
         Ok(i) => i,
@@ -81,7 +76,6 @@ pub fn update_index(
         Err(e) => return Err(e),
     };
 
-    let mode: u32 = mode.parse()?;
     let mut sha1 = [0u8; 20];
     hex::decode_to_slice(object, &mut sha1)?;
 

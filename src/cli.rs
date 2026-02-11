@@ -81,7 +81,8 @@ impl Cli {
                     unreachable!("Clap ensures 3 args")
                 };
 
-                update_index(mode, sha, path, &repo)?;
+                let mode_u32 = mode.parse::<u32>()?;
+                update_index(mode_u32, sha, path, &repo)?;
             }
             Commands::WriteTree => {
                 write_tree(&repo)?;
