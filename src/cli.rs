@@ -57,31 +57,34 @@ pub enum Commands {
     WriteTree,
 }
 
+use crate::repository::Repository;
+
 impl Cli {
     pub fn run(&self) -> Result<()> {
         let root_dir = get_root_dir(self.git_mode);
+        let repo = Repository::new(root_dir);
 
         match &self.commands {
             Commands::Init => {
-                fs::create_dir_all(format!("{}/objects", root_dir))?;
+                fs::create_dir_all(repo.objects_dir())?;
                 println!("repo initialized");
             }
             Commands::HashObject { object_path, write } => {
-                hash_object(object_path, write, root_dir)?;
+                hash_object(object_path, *write, &repo)?;
             }
             Commands::CatFile { object, typ } => {
-                cat_file(object, typ, root_dir)?;
+                cat_file(object, *typ, &repo)?;
             }
-            Commands::LsFiles => ls_files(root_dir)?,
+            Commands::LsFiles => ls_files(&repo)?,
             Commands::UpdateIndex { cacheinfo } => {
                 let [mode, sha, path] = &cacheinfo[..] else {
                     unreachable!("Clap ensures 3 args")
                 };
 
-                update_index(mode, sha, path, root_dir)?;
+                update_index(mode, sha, path, &repo)?;
             }
             Commands::WriteTree => {
-                write_tree(root_dir)?;
+                write_tree(&repo)?;
             }
         }
         Ok(())

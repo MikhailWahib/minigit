@@ -1,4 +1,7 @@
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow};
+use flate2::Compression;
+use flate2::read::ZlibDecoder;
+use flate2::write::ZlibEncoder;
 use hex;
 use sha1::{Digest, Sha1};
 use std::{
@@ -6,12 +9,15 @@ use std::{
     io::{Read, Write},
     path::Path,
 };
-use zlib_rs::{DeflateConfig, InflateConfig, compress_bound, compress_slice, decompress_slice};
 
 use crate::plumbing::{dir_tree::DirTree, reader::Reader};
 
 /// Write a Git object (blob, tree, commit, etc.) to the object database
-pub fn write_object(content: &[u8], obj_type: &str, objects_path: &str) -> Result<String> {
+pub fn write_object(
+    content: &[u8],
+    obj_type: &str,
+    objects_path: impl AsRef<Path>,
+) -> Result<String> {
     let header = format!("{} {}\0", obj_type, content.len());
 
     let mut hasher = Sha1::new();
@@ -21,7 +27,7 @@ pub fn write_object(content: &[u8], obj_type: &str, objects_path: &str) -> Resul
     let hex_hash = hex::encode(hash);
 
     let (dir, file_name) = hex_hash.split_at(2);
-    let obj_dir = Path::new(&objects_path).join(dir);
+    let obj_dir = objects_path.as_ref().join(dir);
     let obj_path = obj_dir.join(file_name);
 
     if !obj_path.exists() {
@@ -31,36 +37,28 @@ pub fn write_object(content: &[u8], obj_type: &str, objects_path: &str) -> Resul
         object.extend_from_slice(header.as_bytes());
         object.extend_from_slice(content);
 
-        let mut compressed_buf = vec![0u8; compress_bound(object.len())];
-        let (compressed, _rc) =
-            compress_slice(&mut compressed_buf, &mut object, DeflateConfig::default());
-
-        let mut out = File::create(&obj_path)?;
-        out.write_all(compressed)?;
+        let file = File::create(&obj_path)?;
+        let mut encoder = ZlibEncoder::new(file, Compression::default());
+        encoder.write_all(&object)?;
+        encoder.finish()?;
     }
 
     Ok(hex_hash)
 }
 
 /// Read and decompress a Git object from the object database
-pub fn read_object(hash: &str, objects_path: String) -> Result<(String, Vec<u8>)> {
+pub fn read_object(hash: &str, objects_path: impl AsRef<Path>) -> Result<(String, Vec<u8>)> {
     let (dir, file_name) = hash.split_at(2);
 
-    let mut compressed_buf: Vec<u8> = Vec::new();
-    let file_dir = Path::new(&objects_path).join(dir);
+    let file_dir = objects_path.as_ref().join(dir);
     let file_path = file_dir.join(file_name);
 
-    let mut file =
-        File::open(&file_path).map_err(|_| anyhow!("Could not find object with hash {}", hash))?;
-    file.read_to_end(&mut compressed_buf)?;
+    let file = File::open(&file_path)
+        .with_context(|| format!("Could not find object with hash {}", hash))?;
 
-    let mut decompressed_buf = vec![0u8; compress_bound(1024 * 16)];
-
-    let (decompressed, _rc) = decompress_slice(
-        &mut decompressed_buf,
-        &mut compressed_buf,
-        InflateConfig::default(),
-    );
+    let mut decoder = ZlibDecoder::new(file);
+    let mut decompressed = Vec::new();
+    decoder.read_to_end(&mut decompressed)?;
 
     let pos = decompressed
         .iter()
@@ -133,7 +131,7 @@ pub fn format_tree(data: &[u8]) -> Result<String> {
     Ok(output)
 }
 
-pub fn write_tree_recursive(node: &DirTree, objects_path: &str) -> Result<String> {
+pub fn write_tree_recursive(node: &DirTree, objects_path: impl AsRef<Path>) -> Result<String> {
     match node {
         DirTree::Blob { sha1, .. } => Ok(hex::encode(sha1)),
         DirTree::Tree { children } => {
@@ -149,7 +147,7 @@ pub fn write_tree_recursive(node: &DirTree, objects_path: &str) -> Result<String
                         });
                     }
                     DirTree::Tree { .. } => {
-                        let subtree_hash = write_tree_recursive(child_node, objects_path)?;
+                        let subtree_hash = write_tree_recursive(child_node, objects_path.as_ref())?;
                         let mut sha1 = [0u8; 20];
                         hex::decode_to_slice(&subtree_hash, &mut sha1)?;
 

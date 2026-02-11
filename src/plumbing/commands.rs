@@ -1,15 +1,14 @@
 use anyhow::{Context, Result};
 use hex;
-use std::{
-    fs::File,
-    io::{self, Read},
-};
+use std::fs::File;
+use std::io::{self, Read};
 
 use super::core::{format_tree, hash_content, read_object, write_object, write_tree_recursive};
 use super::index::Index;
 use crate::plumbing::dir_tree::DirTree;
+use crate::repository::Repository;
 
-pub fn hash_object(object_path: &str, write: &bool, root_dir: &str) -> Result<()> {
+pub fn hash_object(object_path: &str, write: bool, repo: &Repository) -> Result<()> {
     let mut file = File::open(&object_path)
         .with_context(|| format!("Failed to open object at {}", object_path))?;
 
@@ -22,16 +21,16 @@ pub fn hash_object(object_path: &str, write: &bool, root_dir: &str) -> Result<()
         return Ok(());
     }
 
-    let hex_hash = write_object(&content, "blob", format!("{}/objects", root_dir).as_str())?;
+    let hex_hash = write_object(&content, "blob", repo.objects_dir())?;
     println!("{hex_hash}");
 
     Ok(())
 }
 
-pub fn cat_file(hash: &str, typ: &bool, root_dir: &str) -> Result<String> {
-    let (obj_type, body) = read_object(hash, format!("{}/objects", root_dir))?;
+pub fn cat_file(hash: &str, typ: bool, repo: &Repository) -> Result<String> {
+    let (obj_type, body) = read_object(hash, repo.objects_dir())?;
 
-    if *typ {
+    if typ {
         println!("{obj_type}");
         return Ok(obj_type);
     }
@@ -47,8 +46,8 @@ pub fn cat_file(hash: &str, typ: &bool, root_dir: &str) -> Result<String> {
     Ok(body_str.to_string())
 }
 
-pub fn ls_files(root_dir: &str) -> Result<()> {
-    let idx_path = format!("{}/index", root_dir);
+pub fn ls_files(repo: &Repository) -> Result<()> {
+    let idx_path = repo.index_path();
 
     match Index::read(idx_path) {
         Ok(idx) => println!("{}", idx),
@@ -64,8 +63,13 @@ pub fn ls_files(root_dir: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn update_index(mode: &String, object: &String, file: &String, root_dir: &str) -> Result<()> {
-    let idx_path = format!("{}/index", root_dir);
+pub fn update_index(
+    mode: &String,
+    object: &String,
+    file: &String,
+    repo: &Repository,
+) -> Result<()> {
+    let idx_path = repo.index_path();
     let mut idx = match Index::read(&idx_path) {
         Ok(i) => i,
         Err(e)
@@ -87,12 +91,12 @@ pub fn update_index(mode: &String, object: &String, file: &String, root_dir: &st
     Ok(())
 }
 
-pub fn write_tree(root_dir: &str) -> Result<String> {
-    let idx = Index::read(format!("{}/index", root_dir))?;
+pub fn write_tree(repo: &Repository) -> Result<String> {
+    let idx = Index::read(repo.index_path())?;
     let entries = idx.entries();
     let idx_dir_tree = DirTree::from_idx_entries(entries);
 
-    let root_hash = write_tree_recursive(&idx_dir_tree, format!("{root_dir}/objects").as_str())?;
+    let root_hash = write_tree_recursive(&idx_dir_tree, repo.objects_dir())?;
 
     println!("{}", root_hash);
     Ok(root_hash)

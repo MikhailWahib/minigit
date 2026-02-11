@@ -3,7 +3,8 @@ use anyhow::Result;
 use clap::Parser;
 
 mod cli;
-mod plumbing;
+pub mod plumbing;
+pub mod repository;
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
