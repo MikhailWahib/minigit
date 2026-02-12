@@ -5,14 +5,6 @@ use clap::{Parser, Subcommand};
 
 use crate::plumbing::commands::{cat_file, hash_object, ls_files, update_index, write_tree};
 
-fn get_root_dir(git_mode: bool) -> &'static str {
-    if git_mode {
-        return ".git";
-    }
-
-    ".minigit"
-}
-
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Cli {
@@ -62,8 +54,7 @@ use crate::repository::Repository;
 
 impl Cli {
     pub fn run(self) -> Result<()> {
-        let root_dir = get_root_dir(self.git_mode);
-        let repo = Repository::new(root_dir);
+        let repo = Repository::new(self.git_mode)?;
 
         match self.commands {
             Commands::Init => {
