@@ -193,11 +193,18 @@ pub struct IndexEntry {
 
 impl IndexEntry {
     fn new(path: String, sha1: [u8; 20], mode: u32) -> Result<Self> {
+        // reject long names for now
+        // TODO: handle long entry names
+        if path.len() > 0x0FFF {
+            bail!("path too long for index entry (max 4095 bytes)");
+        }
+
         let metadata = fs::metadata(&path)?;
         let ctime_secs = metadata.ctime() as u32;
         let ctime_nano = metadata.ctime_nsec() as u32;
-        let mtime_secs = metadata.modified()?.duration_since(UNIX_EPOCH)?.as_secs() as u32;
-        let mtime_nano = metadata.modified()?.duration_since(UNIX_EPOCH)?.as_nanos() as u32;
+        let mtime = metadata.modified()?.duration_since(UNIX_EPOCH)?;
+        let mtime_secs = mtime.as_secs() as u32;
+        let mtime_nano = mtime.subsec_nanos();
         let dev = metadata.dev() as u32;
         let ino = metadata.ino() as u32;
         let uid = metadata.uid();
