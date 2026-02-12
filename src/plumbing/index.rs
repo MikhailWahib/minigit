@@ -282,3 +282,72 @@ impl fmt::Display for IndexEntry {
         write!(f, "  mode: {:o}\tsha1: {}", self.mode, hex_sha1)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Index;
+    use std::fs;
+    use tempfile::tempdir_in;
+
+    #[test]
+    fn write_read_roundtrip_preserves_entries() {
+        let tmp = tempdir_in(".").expect("tempdir");
+        let base = tmp
+            .path()
+            .file_name()
+            .expect("tmp dir name")
+            .to_string_lossy();
+
+        let file_a = format!("{base}/a.txt");
+        let file_b = format!("{base}/b.txt");
+        fs::write(&file_a, "alpha").expect("write file a");
+        fs::write(&file_b, "beta").expect("write file b");
+
+        let mut index = Index::new();
+        index
+            .add(file_b.clone(), [0xBB; 20], 0o100644)
+            .expect("add b");
+        index
+            .add(file_a.clone(), [0xAA; 20], 0o100644)
+            .expect("add a");
+
+        let index_path = tmp.path().join("index");
+        index.write(&index_path).expect("write index");
+
+        let loaded = Index::read(&index_path).expect("read index");
+        let entries = loaded.entries();
+
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].name, file_a);
+        assert_eq!(entries[0].sha1, [0xAA; 20]);
+        assert_eq!(entries[1].name, file_b);
+        assert_eq!(entries[1].sha1, [0xBB; 20]);
+    }
+
+    #[test]
+    fn rejects_checksum_mismatch() {
+        let tmp = tempdir_in(".").expect("tempdir");
+        let base = tmp
+            .path()
+            .file_name()
+            .expect("tmp dir name")
+            .to_string_lossy();
+        let file = format!("{base}/tracked.txt");
+        fs::write(&file, "content").expect("write tracked file");
+
+        let mut index = Index::new();
+        index
+            .add(file, [0x11; 20], 0o100644)
+            .expect("add index entry");
+
+        let path = tmp.path().join("index");
+        index.write(&path).expect("write index");
+
+        let mut bytes = fs::read(&path).expect("read index");
+        bytes[0] ^= 0xFF;
+        fs::write(&path, bytes).expect("rewrite corrupted index");
+
+        let err = Index::read(&path).expect_err("checksum mismatch should fail");
+        assert!(format!("{err}").contains("checksum mismatch"));
+    }
+}

@@ -49,3 +49,34 @@ impl TreeEntry {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Tree, TreeEntry};
+
+    #[test]
+    fn serializes_entries_in_git_sort_order() {
+        let tree_sha = [0x11; 20];
+        let blob_sha_a = [0x22; 20];
+        let blob_sha_z = [0x33; 20];
+
+        let tree = Tree::from_entries(vec![
+            TreeEntry::blob("z.txt", 0o100644, blob_sha_z),
+            TreeEntry::blob("a.txt", 0o100644, blob_sha_a),
+            TreeEntry::tree("dir", tree_sha),
+        ]);
+
+        let bytes = tree.to_bytes();
+        let expected = [
+            format!("{:o} {}\0", 0o100644, "a.txt").into_bytes(),
+            blob_sha_a.to_vec(),
+            format!("{:o} {}\0", 0o040000, "dir").into_bytes(),
+            tree_sha.to_vec(),
+            format!("{:o} {}\0", 0o100644, "z.txt").into_bytes(),
+            blob_sha_z.to_vec(),
+        ]
+        .concat();
+
+        assert_eq!(bytes, expected);
+    }
+}
