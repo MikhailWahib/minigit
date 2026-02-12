@@ -10,7 +10,11 @@ use std::{
     path::Path,
 };
 
-use crate::plumbing::{dir_tree::DirTree, reader::Reader};
+use crate::plumbing::{
+    index_tree::IndexTree,
+    reader::Reader,
+    tree::{Tree, TreeEntry},
+};
 
 /// Write a Git object (blob, tree, commit, etc.) to the object database
 pub fn write_object(
@@ -131,67 +135,29 @@ pub fn format_tree(data: &[u8]) -> Result<String> {
     Ok(output)
 }
 
-pub fn write_tree_recursive(node: &DirTree, objects_path: impl AsRef<Path>) -> Result<String> {
+pub fn write_tree_recursive(node: &IndexTree, objects_path: impl AsRef<Path>) -> Result<String> {
     match node {
-        DirTree::Blob { sha1, .. } => Ok(hex::encode(sha1)),
-        DirTree::Tree { children } => {
+        IndexTree::Blob { sha1, .. } => Ok(hex::encode(sha1)),
+        IndexTree::Tree { children } => {
             let mut entries = Vec::new();
 
             for (name, child_node) in children {
                 match child_node {
-                    DirTree::Blob { mode, sha1, .. } => {
-                        entries.push(TreeEntryData {
-                            mode: *mode,
-                            name: name.clone(),
-                            sha1: *sha1,
-                        });
+                    IndexTree::Blob { mode, sha1, .. } => {
+                        entries.push(TreeEntry::blob(name.clone(), *mode, *sha1));
                     }
-                    DirTree::Tree { .. } => {
+                    IndexTree::Tree { .. } => {
                         let subtree_hash = write_tree_recursive(child_node, objects_path.as_ref())?;
                         let mut sha1 = [0u8; 20];
                         hex::decode_to_slice(&subtree_hash, &mut sha1)?;
 
-                        entries.push(TreeEntryData {
-                            mode: 0o040000,
-                            name: name.clone(),
-                            sha1,
-                        });
+                        entries.push(TreeEntry::tree(name.clone(), sha1));
                     }
                 }
             }
 
-            // git sorts tree entries with special rules:
-            // directories are sorted as if they have a trailing '/'
-            // this means "foo.rs" comes before "foo/"
-            // so if the entry is a dir (tree), wee add a trailing '/' to sort properly
-            entries.sort_by(|a, b| {
-                let a_name = if a.mode == 0o040000 {
-                    format!("{}/", a.name)
-                } else {
-                    a.name.clone()
-                };
-                let b_name = if b.mode == 0o040000 {
-                    format!("{}/", b.name)
-                } else {
-                    b.name.clone()
-                };
-                a_name.cmp(&b_name)
-            });
-
-            let mut tree_content = Vec::new();
-            for entry in &entries {
-                tree_content
-                    .extend_from_slice(format!("{:o} {}\0", entry.mode, entry.name).as_bytes());
-                tree_content.extend_from_slice(&entry.sha1);
-            }
-
-            write_object(&tree_content, "tree", objects_path)
+            let tree = Tree::from_entries(entries);
+            write_object(&tree.to_bytes(), "tree", objects_path)
         }
     }
-}
-
-struct TreeEntryData {
-    mode: u32,
-    name: String,
-    sha1: [u8; 20],
 }

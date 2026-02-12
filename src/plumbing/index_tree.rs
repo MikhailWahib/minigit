@@ -3,14 +3,14 @@ use std::collections::BTreeMap;
 use crate::plumbing::index::IndexEntry;
 
 #[derive(Debug)]
-pub enum DirTree {
+pub enum IndexTree {
     Blob { mode: u32, sha1: [u8; 20] },
-    Tree { children: BTreeMap<String, DirTree> },
+    Tree { children: BTreeMap<String, IndexTree> },
 }
 
-impl DirTree {
+impl IndexTree {
     pub fn from_idx_entries(idx_entries: Vec<&IndexEntry>) -> Self {
-        let mut root = DirTree::Tree {
+        let mut root = IndexTree::Tree {
             children: BTreeMap::new(),
         };
 
@@ -21,7 +21,7 @@ impl DirTree {
         root
     }
 
-    fn insert_entry(root: &mut DirTree, entry: &IndexEntry) {
+    fn insert_entry(root: &mut IndexTree, entry: &IndexEntry) {
         let parts: Vec<&str> = entry.name.split('/').collect();
         let mut cur = root;
 
@@ -29,11 +29,11 @@ impl DirTree {
             let is_leaf = i == parts.len() - 1;
 
             cur = match cur {
-                DirTree::Tree { children } => {
+                IndexTree::Tree { children } => {
                     if is_leaf {
                         children.insert(
                             part.to_string(),
-                            DirTree::Blob {
+                            IndexTree::Blob {
                                 mode: entry.mode,
                                 sha1: entry.sha1,
                             },
@@ -42,7 +42,7 @@ impl DirTree {
                     } else {
                         children
                             .entry(part.to_string())
-                            .or_insert_with(|| DirTree::Tree {
+                            .or_insert_with(|| IndexTree::Tree {
                                 children: BTreeMap::new(),
                             })
                     }

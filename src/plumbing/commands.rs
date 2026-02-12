@@ -5,7 +5,7 @@ use std::io::{self, Read};
 
 use super::core::{format_tree, hash_content, read_object, write_object, write_tree_recursive};
 use super::index::Index;
-use crate::plumbing::dir_tree::DirTree;
+use crate::plumbing::index_tree::IndexTree;
 use crate::repository::Repository;
 
 pub fn hash_object(object_path: &str, write: bool, repo: &Repository) -> Result<()> {
@@ -88,7 +88,7 @@ pub fn update_index(mode: u32, object: &str, file: String, repo: &Repository) ->
 pub fn write_tree(repo: &Repository) -> Result<String> {
     let idx = Index::read(repo.index_path())?;
     let entries = idx.entries();
-    let idx_dir_tree = DirTree::from_idx_entries(entries);
+    let idx_dir_tree = IndexTree::from_idx_entries(entries);
 
     let root_hash = write_tree_recursive(&idx_dir_tree, repo.objects_dir())?;
 
