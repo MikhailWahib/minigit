@@ -54,26 +54,32 @@ use crate::repository::Repository;
 
 impl Cli {
     pub fn run(self) -> Result<()> {
-        let repo = Repository::new(self.git_mode)?;
-
         match self.commands {
             Commands::Init => {
+                let repo = Repository::init(self.git_mode)?;
                 fs::create_dir_all(repo.objects_dir())?;
                 println!("repo initialized");
             }
             Commands::HashObject { object_path, write } => {
+                let repo = Repository::discover(self.git_mode)?;
                 hash_object(&object_path, write, &repo)?;
             }
             Commands::CatFile { object, typ } => {
+                let repo = Repository::discover(self.git_mode)?;
                 cat_file(&object, typ, &repo)?;
             }
-            Commands::LsFiles => ls_files(&repo)?,
+            Commands::LsFiles => {
+                let repo = Repository::discover(self.git_mode)?;
+                ls_files(&repo)?;
+            }
             Commands::UpdateIndex { mode, object, path } => {
+                let repo = Repository::discover(self.git_mode)?;
                 let mode_u32 = mode.parse::<u32>()?;
                 update_index(mode_u32, &object, path, &repo)?;
             }
 
             Commands::WriteTree => {
+                let repo = Repository::discover(self.git_mode)?;
                 write_tree(&repo)?;
             }
         }

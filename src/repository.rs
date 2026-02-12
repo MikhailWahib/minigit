@@ -11,11 +11,23 @@ pub struct Repository {
 }
 
 impl Repository {
-    pub fn new(git_mode: bool) -> Result<Self> {
+    pub fn discover(git_mode: bool) -> Result<Self> {
         let cwd = env::current_dir()?;
         let git_dir = Self::find_git_dir(&cwd, git_mode)?;
 
         let work_tree = git_dir.parent().map(|p| p.to_path_buf()).unwrap_or(cwd);
+
+        Ok(Self {
+            work_tree,
+            git_dir,
+            git_mode,
+        })
+    }
+
+    pub fn init(git_mode: bool) -> Result<Self> {
+        let work_tree = env::current_dir()?;
+        let git_dir_name = if git_mode { ".git" } else { ".minigit" };
+        let git_dir = work_tree.join(git_dir_name);
 
         Ok(Self {
             work_tree,
