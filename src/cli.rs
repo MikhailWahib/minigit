@@ -62,20 +62,30 @@ use crate::repository::Repository;
 
 impl Cli {
     pub fn run(self) -> Result<()> {
-        match self.commands {
+        let Cli { git_mode, commands } = self;
+
+        match commands {
             Commands::Init => {
-                let repo = Repository::init(self.git_mode)?;
+                let repo = Repository::init(git_mode)?;
                 fs::create_dir_all(repo.git_dir().join("objects"))?;
                 println!("repo initialized");
+                Ok(())
             }
+            cmd => {
+                let repo = Repository::discover(git_mode)?;
+                Self::run_with_repo(cmd, &repo)
+            }
+        }
+    }
+
+    fn run_with_repo(cmd: Commands, repo: &Repository) -> Result<()> {
+        match cmd {
             Commands::HashObject { object_path, write } => {
-                let repo = Repository::discover(self.git_mode)?;
-                let hash = hash_object(&object_path, write, &repo)?;
+                let hash = hash_object(&object_path, write, repo)?;
                 println!("{hash}");
             }
             Commands::CatFile { object, typ } => {
-                let repo = Repository::discover(self.git_mode)?;
-                let output = cat_file(&object, typ, &repo)?;
+                let output = cat_file(&object, typ, repo)?;
                 if typ {
                     println!("{output}");
                 } else {
@@ -83,20 +93,16 @@ impl Cli {
                 }
             }
             Commands::LsFiles => {
-                let repo = Repository::discover(self.git_mode)?;
-                if let Some(output) = ls_files(&repo)? {
+                if let Some(output) = ls_files(repo)? {
                     print!("{output}");
                 }
             }
             Commands::UpdateIndex { mode, object, path } => {
-                let repo = Repository::discover(self.git_mode)?;
                 let mode_u32 = mode.parse::<u32>()?;
-                update_index(mode_u32, &object, path, &repo)?;
+                update_index(mode_u32, &object, path, repo)?;
             }
-
             Commands::WriteTree => {
-                let repo = Repository::discover(self.git_mode)?;
-                let hash = write_tree(&repo)?;
+                let hash = write_tree(repo)?;
                 println!("{hash}");
             }
             Commands::CommitTree {
@@ -104,11 +110,12 @@ impl Cli {
                 parent,
                 message,
             } => {
-                let repo = Repository::discover(self.git_mode)?;
-                let hash = commit_tree(tree, parent, message, &repo)?;
+                let hash = commit_tree(tree, parent, message, repo)?;
                 println!("{hash}");
             }
+            Commands::Init => unreachable!(),
         }
+
         Ok(())
     }
 }
