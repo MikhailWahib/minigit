@@ -5,8 +5,8 @@ use std::{
 };
 
 pub struct Repository {
-    pub work_tree: PathBuf,
-    pub git_dir: PathBuf,
+    work_tree: PathBuf,
+    git_dir: PathBuf,
     git_mode: bool,
 }
 
@@ -36,26 +36,21 @@ impl Repository {
         })
     }
 
-    pub fn git_dir(&self) -> PathBuf {
-        self.git_dir.clone()
+    pub fn work_tree(&self) -> &Path {
+        &self.work_tree
     }
 
-    pub fn objects_dir(&self) -> PathBuf {
-        self.git_dir.join("objects")
+    pub fn git_dir(&self) -> &Path {
+        &self.git_dir
     }
 
-    pub fn index_path(&self) -> PathBuf {
-        self.git_dir.join("index")
-    }
-
-    pub fn ignore_file_path(&self) -> PathBuf {
+    pub fn ignore_file_name(&self) -> &str {
         let name = if self.git_mode {
             ".gitignore"
         } else {
             ".minigitignore"
         };
-
-        self.work_tree.join(name)
+        name
     }
 
     fn find_git_dir(start: &Path, git_mode: bool) -> Result<PathBuf> {

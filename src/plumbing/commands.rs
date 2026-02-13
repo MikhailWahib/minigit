@@ -21,12 +21,14 @@ pub fn hash_object(object_path: &str, write: bool, repo: &Repository) -> Result<
         return Ok(hash_content(&content, "blob"));
     }
 
-    let hex_hash = write_object(&content, "blob", repo.objects_dir())?;
+    let objects_dir = repo.git_dir().join("objects");
+    let hex_hash = write_object(&content, "blob", &objects_dir)?;
     Ok(hex_hash)
 }
 
 pub fn cat_file(hash: &str, typ: bool, repo: &Repository) -> Result<String> {
-    let (obj_type, body) = read_object(hash, repo.objects_dir())?;
+    let objects_dir = repo.git_dir().join("objects");
+    let (obj_type, body) = read_object(hash, &objects_dir)?;
 
     if typ {
         return Ok(obj_type);
@@ -42,7 +44,7 @@ pub fn cat_file(hash: &str, typ: bool, repo: &Repository) -> Result<String> {
 }
 
 pub fn ls_files(repo: &Repository) -> Result<Option<String>> {
-    let idx_path = repo.index_path();
+    let idx_path = repo.git_dir().join("index");
 
     match Index::read(idx_path) {
         Ok(idx) => Ok(Some(idx.to_string())),
@@ -58,7 +60,7 @@ pub fn ls_files(repo: &Repository) -> Result<Option<String>> {
 }
 
 pub fn update_index(mode: u32, object: &str, file: String, repo: &Repository) -> Result<()> {
-    let idx_path = repo.index_path();
+    let idx_path = repo.git_dir().join("index");
     let mut idx = match Index::read(&idx_path) {
         Ok(i) => i,
         Err(e)
@@ -80,11 +82,12 @@ pub fn update_index(mode: u32, object: &str, file: String, repo: &Repository) ->
 }
 
 pub fn write_tree(repo: &Repository) -> Result<String> {
-    let idx = Index::read(repo.index_path())?;
+    let idx = Index::read(repo.git_dir().join("index"))?;
     let entries = idx.entries();
     let idx_dir_tree = IndexTree::from_idx_entries(entries);
 
-    let root_hash = write_tree_recursive(&idx_dir_tree, repo.objects_dir())?;
+    let objects_dir = repo.git_dir().join("objects");
+    let root_hash = write_tree_recursive(&idx_dir_tree, &objects_dir)?;
 
     Ok(root_hash)
 }
@@ -95,15 +98,16 @@ pub fn commit_tree(
     message: String,
     repo: &Repository,
 ) -> Result<String> {
-    validate_object_reference(&tree, "tree", repo.objects_dir().as_path())?;
+    let objects_dir = repo.git_dir().join("objects");
+    validate_object_reference(&tree, "tree", &objects_dir)?;
 
     if let Some(parent_hash) = &parent {
-        validate_object_reference(parent_hash, "commit", repo.objects_dir().as_path())?;
+        validate_object_reference(parent_hash, "commit", &objects_dir)?;
     }
 
     let commit = Commit::new(tree, parent, message)?;
 
-    let commit_hash = write_object(&commit.to_bytes(), "commit", repo.objects_dir())?;
+    let commit_hash = write_object(&commit.to_bytes(), "commit", &objects_dir)?;
     Ok(commit_hash)
 }
 

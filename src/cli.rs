@@ -65,7 +65,7 @@ impl Cli {
         match self.commands {
             Commands::Init => {
                 let repo = Repository::init(self.git_mode)?;
-                fs::create_dir_all(repo.objects_dir())?;
+                fs::create_dir_all(repo.git_dir().join("objects"))?;
                 println!("repo initialized");
             }
             Commands::HashObject { object_path, write } => {
