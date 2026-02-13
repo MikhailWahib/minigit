@@ -95,20 +95,11 @@ pub fn hash_content(content: &[u8], obj_type: &str) -> String {
 /// Format tree data for pretty printing
 pub fn format_tree(data: &[u8]) -> Result<String> {
     let mut output = String::new();
-    let mut reader = Reader {
-        buf: data,
-        offset: 0,
-    };
+    let mut reader = Reader::new(data);
 
-    while reader.offset < reader.buf.len() {
-        // read until \0 byte to get "mode name"
-        let start = reader.offset;
-        let null_pos = reader.buf[start..]
-            .iter()
-            .position(|&b| b == 0)
-            .ok_or_else(|| anyhow!("Malformed tree entry"))?;
-
-        let mode_name = std::str::from_utf8(&reader.buf[start..start + null_pos])?;
+    while !reader.is_eof() {
+        // Read "mode name" up to the NUL separator.
+        let mode_name = str::from_utf8(&reader.read_until_nul()?)?;
         let parts: Vec<&str> = mode_name.split(' ').collect();
 
         if parts.len() != 2 {
@@ -117,9 +108,6 @@ pub fn format_tree(data: &[u8]) -> Result<String> {
 
         let mode: u32 = parts[0].parse()?;
         let name = parts[1];
-
-        // skip \0
-        reader.skip(null_pos + 1)?;
 
         let sha1 = reader.read_exact(20)?;
         let sha1_hex = hex::encode(sha1);

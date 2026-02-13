@@ -51,10 +51,7 @@ impl Index {
             bail!("Index file checksum mismatch");
         }
 
-        let mut r = Reader {
-            buf: content,
-            offset: 0,
-        };
+        let mut r = Reader::new(content);
 
         // read the header: first 12 bytes
         let signature: [u8; 4] = r.read_exact(4)?.try_into()?;
