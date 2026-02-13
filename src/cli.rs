@@ -3,7 +3,7 @@ use std::fs;
 
 use clap::{Parser, Subcommand};
 
-use crate::plumbing::commands::{
+use crate::plumbing::cli::{
     cat_file, commit_tree, hash_object, ls_files, update_index, write_tree,
 };
 
@@ -98,8 +98,7 @@ impl Cli {
                 }
             }
             Commands::UpdateIndex { mode, object, path } => {
-                let mode_u32 = mode.parse::<u32>()?;
-                update_index(mode_u32, &object, path, repo)?;
+                update_index(&mode, &object, path, repo)?;
             }
             Commands::WriteTree => {
                 let hash = write_tree(repo)?;

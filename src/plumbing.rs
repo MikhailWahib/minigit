@@ -1,4 +1,5 @@
-pub mod commands;
+pub mod cli;
+pub mod ops;
 mod commit;
 mod core;
 pub mod index;
