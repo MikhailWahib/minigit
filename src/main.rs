@@ -3,6 +3,7 @@ use anyhow::Result;
 use clap::Parser;
 
 mod cli;
+pub mod config;
 pub mod plumbing;
 pub mod repository;
 

@@ -3,7 +3,9 @@ use std::fs;
 
 use clap::{Parser, Subcommand};
 
-use crate::plumbing::commands::{cat_file, hash_object, ls_files, update_index, write_tree};
+use crate::plumbing::commands::{
+    cat_file, commit_tree, hash_object, ls_files, update_index, write_tree,
+};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -26,7 +28,6 @@ pub enum Commands {
         /// Store the object in minigit database
         write: bool,
         /// Path for object
-        #[arg()]
         object_path: String,
     },
     /// Prints out the content of a given file in minigit database
@@ -35,7 +36,6 @@ pub enum Commands {
         #[arg(short)]
         typ: bool,
         /// The name of the object to show.
-        #[arg()]
         object: String,
     },
     /// Prints out index file
@@ -46,8 +46,16 @@ pub enum Commands {
         object: String,
         path: String,
     },
-    /// Create a tree object from the current index
+    /// Creates a tree object from the current index
     WriteTree,
+    /// Creates a new commit object based on the provided tree object
+    CommitTree {
+        tree: String,
+        #[arg(short)]
+        parent: Option<String>,
+        #[arg(short)]
+        message: String,
+    },
 }
 
 use crate::repository::Repository;
@@ -81,6 +89,14 @@ impl Cli {
             Commands::WriteTree => {
                 let repo = Repository::discover(self.git_mode)?;
                 write_tree(&repo)?;
+            }
+            Commands::CommitTree {
+                tree,
+                parent,
+                message,
+            } => {
+                let repo = Repository::discover(self.git_mode)?;
+                commit_tree(tree, parent, message, &repo)?;
             }
         }
         Ok(())

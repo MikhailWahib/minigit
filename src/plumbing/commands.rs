@@ -1,10 +1,12 @@
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, anyhow};
 use hex;
 use std::fs::File;
 use std::io::{self, Read};
+use std::path::Path;
 
 use super::core::{format_tree, hash_content, read_object, write_object, write_tree_recursive};
 use super::index::Index;
+use crate::plumbing::commit::Commit;
 use crate::plumbing::index_tree::IndexTree;
 use crate::repository::Repository;
 
@@ -94,4 +96,44 @@ pub fn write_tree(repo: &Repository) -> Result<String> {
 
     println!("{}", root_hash);
     Ok(root_hash)
+}
+
+pub fn commit_tree(
+    tree: String,
+    parent: Option<String>,
+    message: String,
+    repo: &Repository,
+) -> Result<()> {
+    validate_object_reference(&tree, "tree", repo.objects_dir().as_path())?;
+
+    if let Some(parent_hash) = &parent {
+        validate_object_reference(parent_hash, "commit", repo.objects_dir().as_path())?;
+    }
+
+    let commit = Commit::new(tree, parent, message)?;
+
+    let commit_hash = write_object(&commit.to_bytes(), "commit", repo.objects_dir())?;
+
+    println!("{commit_hash}");
+    Ok(())
+}
+
+fn validate_object_reference(object: &str, expected_type: &str, objects_dir: &Path) -> Result<()> {
+    if object.len() != 40 {
+        return Err(anyhow!("'{object}': is not a valid object"));
+    }
+
+    let mut sha1 = [0u8; 20];
+    hex::decode_to_slice(object, &mut sha1)
+        .with_context(|| format!("invalid object id '{object}': expected hex hash"))?;
+
+    let (obj_type, _) =
+        read_object(object, objects_dir).with_context(|| format!("object not found: {object}"))?;
+    if obj_type != expected_type {
+        return Err(anyhow!(
+            "invalid object type for {object}: expected {expected_type}, got {obj_type}"
+        ));
+    }
+
+    Ok(())
 }

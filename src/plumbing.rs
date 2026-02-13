@@ -1,6 +1,7 @@
 pub mod commands;
+mod commit;
 mod core;
-mod index_tree;
 pub mod index;
+mod index_tree;
 mod reader;
 mod tree;
