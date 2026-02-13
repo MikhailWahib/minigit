@@ -10,7 +10,7 @@ use crate::plumbing::commit::Commit;
 use crate::plumbing::index_tree::IndexTree;
 use crate::repository::Repository;
 
-pub fn hash_object(object_path: &str, write: bool, repo: &Repository) -> Result<()> {
+pub fn hash_object(object_path: &str, write: bool, repo: &Repository) -> Result<String> {
     let mut file = File::open(&object_path)
         .with_context(|| format!("Failed to open object at {}", object_path))?;
 
@@ -18,51 +18,43 @@ pub fn hash_object(object_path: &str, write: bool, repo: &Repository) -> Result<
     file.read_to_end(&mut content)?;
 
     if !write {
-        let hex_hash = hash_content(&content, "blob");
-        println!("{hex_hash}");
-        return Ok(());
+        return Ok(hash_content(&content, "blob"));
     }
 
     let hex_hash = write_object(&content, "blob", repo.objects_dir())?;
-    println!("{hex_hash}");
-
-    Ok(())
+    Ok(hex_hash)
 }
 
 pub fn cat_file(hash: &str, typ: bool, repo: &Repository) -> Result<String> {
     let (obj_type, body) = read_object(hash, repo.objects_dir())?;
 
     if typ {
-        println!("{obj_type}");
         return Ok(obj_type);
     }
 
     if obj_type == "tree" {
         let formatted = format_tree(&body)?;
-        print!("{}", formatted);
         return Ok(formatted);
     }
 
     let body_str = std::str::from_utf8(&body).unwrap_or("<binary>");
-    println!("{body_str}");
     Ok(body_str.to_string())
 }
 
-pub fn ls_files(repo: &Repository) -> Result<()> {
+pub fn ls_files(repo: &Repository) -> Result<Option<String>> {
     let idx_path = repo.index_path();
 
     match Index::read(idx_path) {
-        Ok(idx) => println!("{}", idx),
+        Ok(idx) => Ok(Some(idx.to_string())),
         Err(e)
             if e.downcast_ref::<io::Error>()
                 .is_some_and(|e| e.kind() == io::ErrorKind::NotFound) =>
         {
             // ignore missing index
+            Ok(None)
         }
-        Err(e) => return Err(e),
+        Err(e) => Err(e),
     }
-
-    Ok(())
 }
 
 pub fn update_index(mode: u32, object: &str, file: String, repo: &Repository) -> Result<()> {
@@ -94,7 +86,6 @@ pub fn write_tree(repo: &Repository) -> Result<String> {
 
     let root_hash = write_tree_recursive(&idx_dir_tree, repo.objects_dir())?;
 
-    println!("{}", root_hash);
     Ok(root_hash)
 }
 
@@ -103,7 +94,7 @@ pub fn commit_tree(
     parent: Option<String>,
     message: String,
     repo: &Repository,
-) -> Result<()> {
+) -> Result<String> {
     validate_object_reference(&tree, "tree", repo.objects_dir().as_path())?;
 
     if let Some(parent_hash) = &parent {
@@ -113,9 +104,7 @@ pub fn commit_tree(
     let commit = Commit::new(tree, parent, message)?;
 
     let commit_hash = write_object(&commit.to_bytes(), "commit", repo.objects_dir())?;
-
-    println!("{commit_hash}");
-    Ok(())
+    Ok(commit_hash)
 }
 
 fn validate_object_reference(object: &str, expected_type: &str, objects_dir: &Path) -> Result<()> {

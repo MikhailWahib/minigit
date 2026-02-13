@@ -70,15 +70,23 @@ impl Cli {
             }
             Commands::HashObject { object_path, write } => {
                 let repo = Repository::discover(self.git_mode)?;
-                hash_object(&object_path, write, &repo)?;
+                let hash = hash_object(&object_path, write, &repo)?;
+                println!("{hash}");
             }
             Commands::CatFile { object, typ } => {
                 let repo = Repository::discover(self.git_mode)?;
-                cat_file(&object, typ, &repo)?;
+                let output = cat_file(&object, typ, &repo)?;
+                if typ {
+                    println!("{output}");
+                } else {
+                    print!("{output}");
+                }
             }
             Commands::LsFiles => {
                 let repo = Repository::discover(self.git_mode)?;
-                ls_files(&repo)?;
+                if let Some(output) = ls_files(&repo)? {
+                    print!("{output}");
+                }
             }
             Commands::UpdateIndex { mode, object, path } => {
                 let repo = Repository::discover(self.git_mode)?;
@@ -88,7 +96,8 @@ impl Cli {
 
             Commands::WriteTree => {
                 let repo = Repository::discover(self.git_mode)?;
-                write_tree(&repo)?;
+                let hash = write_tree(&repo)?;
+                println!("{hash}");
             }
             Commands::CommitTree {
                 tree,
@@ -96,7 +105,8 @@ impl Cli {
                 message,
             } => {
                 let repo = Repository::discover(self.git_mode)?;
-                commit_tree(tree, parent, message, &repo)?;
+                let hash = commit_tree(tree, parent, message, &repo)?;
+                println!("{hash}");
             }
         }
         Ok(())

@@ -231,10 +231,7 @@ mod tests {
                         sha1: [0x11; 20],
                     },
                 ),
-                (
-                    "sub".to_string(),
-                    subtree,
-                ),
+                ("sub".to_string(), subtree),
             ]),
         };
 
