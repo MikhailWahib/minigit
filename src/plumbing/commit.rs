@@ -3,17 +3,18 @@ use chrono::Local;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::config::{get_user_email, get_user_name};
+use crate::plumbing::object::ObjectId;
 
 pub struct Commit {
-    tree: String,
-    parent: Option<String>,
+    tree: ObjectId,
+    parent: Option<ObjectId>,
     author: Signature,
     committer: Signature,
     message: String,
 }
 
 impl Commit {
-    pub fn new(tree: String, parent: Option<String>, message: String) -> Result<Self> {
+    pub fn new(tree: ObjectId, parent: Option<ObjectId>, message: String) -> Result<Self> {
         let name = get_user_name()?;
         let email = get_user_email()?;
         let author = Signature::new(name.clone(), email.clone());

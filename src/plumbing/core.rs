@@ -12,6 +12,7 @@ use std::{
 
 use crate::plumbing::{
     index_tree::IndexTree,
+    object::{ObjectId, ObjectType},
     reader::Reader,
     tree::{Tree, TreeEntry},
 };
@@ -19,16 +20,17 @@ use crate::plumbing::{
 /// Write a Git object (blob, tree, commit, etc.) to the object database
 pub fn write_object(
     content: &[u8],
-    obj_type: &str,
+    obj_type: ObjectType,
     objects_path: impl AsRef<Path>,
-) -> Result<String> {
+) -> Result<ObjectId> {
     let header = format!("{} {}\0", obj_type, content.len());
 
     let mut hasher = Sha1::new();
     hasher.update(header.as_bytes());
     hasher.update(content);
-    let hash = hasher.finalize();
-    let hex_hash = hex::encode(hash);
+    let hash: [u8; 20] = hasher.finalize().into();
+    let object_id = ObjectId::from_bytes(hash);
+    let hex_hash = object_id.to_hex();
 
     let (dir, file_name) = hex_hash.split_at(2);
     let obj_dir = objects_path.as_ref().join(dir);
@@ -47,12 +49,13 @@ pub fn write_object(
         encoder.finish()?;
     }
 
-    Ok(hex_hash)
+    Ok(object_id)
 }
 
 /// Read and decompress a Git object from the object database
-pub fn read_object(hash: &str, objects_path: impl AsRef<Path>) -> Result<(String, Vec<u8>)> {
-    let (dir, file_name) = hash.split_at(2);
+pub fn read_object(hash: &ObjectId, objects_path: impl AsRef<Path>) -> Result<(ObjectType, Vec<u8>)> {
+    let hex_hash = hash.to_hex();
+    let (dir, file_name) = hex_hash.split_at(2);
 
     let file_dir = objects_path.as_ref().join(dir);
     let file_path = file_dir.join(file_name);
@@ -73,23 +76,23 @@ pub fn read_object(hash: &str, objects_path: impl AsRef<Path>) -> Result<(String
     let body = &decompressed[pos + 1..];
 
     let header_str = std::str::from_utf8(header)?;
-    let obj_type = header_str
+    let obj_type: ObjectType = header_str
         .split(' ')
         .next()
         .ok_or_else(|| anyhow!("Malformed object header"))?
-        .to_string();
+        .parse()?;
 
     Ok((obj_type, body.to_vec()))
 }
 
 /// Hash content without writing to object database
-pub fn hash_content(content: &[u8], obj_type: &str) -> String {
+pub fn hash_content(content: &[u8], obj_type: ObjectType) -> ObjectId {
     let header = format!("{} {}\0", obj_type, content.len());
     let mut hasher = Sha1::new();
     hasher.update(header.as_bytes());
     hasher.update(content);
-    let hash = hasher.finalize();
-    hex::encode(hash)
+    let hash: [u8; 20] = hasher.finalize().into();
+    ObjectId::from_bytes(hash)
 }
 
 /// Format tree data for pretty printing
@@ -123,9 +126,9 @@ pub fn format_tree(data: &[u8]) -> Result<String> {
     Ok(output)
 }
 
-pub fn write_tree_recursive(node: &IndexTree, objects_path: impl AsRef<Path>) -> Result<String> {
+pub fn write_tree_recursive(node: &IndexTree, objects_path: impl AsRef<Path>) -> Result<ObjectId> {
     match node {
-        IndexTree::Blob { sha1, .. } => Ok(hex::encode(sha1)),
+        IndexTree::Blob { sha1, .. } => Ok(ObjectId::from_bytes(*sha1)),
         IndexTree::Tree { children } => {
             let mut entries = Vec::new();
 
@@ -136,16 +139,13 @@ pub fn write_tree_recursive(node: &IndexTree, objects_path: impl AsRef<Path>) ->
                     }
                     IndexTree::Tree { .. } => {
                         let subtree_hash = write_tree_recursive(child_node, objects_path.as_ref())?;
-                        let mut sha1 = [0u8; 20];
-                        hex::decode_to_slice(&subtree_hash, &mut sha1)?;
-
-                        entries.push(TreeEntry::tree(name.clone(), sha1));
+                        entries.push(TreeEntry::tree(name.clone(), subtree_hash.as_bytes()));
                     }
                 }
             }
 
             let tree = Tree::from_entries(entries);
-            write_object(&tree.to_bytes(), "tree", objects_path)
+            write_object(&tree.to_bytes(), ObjectType::Tree, objects_path)
         }
     }
 }
@@ -154,6 +154,7 @@ pub fn write_tree_recursive(node: &IndexTree, objects_path: impl AsRef<Path>) ->
 mod tests {
     use super::{format_tree, read_object, write_object, write_tree_recursive};
     use crate::plumbing::index_tree::IndexTree;
+    use crate::plumbing::object::ObjectType;
     use tempfile::tempdir;
 
     #[test]
@@ -161,12 +162,12 @@ mod tests {
         let dir = tempdir().expect("tempdir");
         let content = b"hello minigit";
 
-        let hash = write_object(content, "blob", dir.path()).expect("write_object");
+        let hash = write_object(content, ObjectType::Blob, dir.path()).expect("write_object");
         let (obj_type, body) = read_object(&hash, dir.path()).expect("read_object");
 
-        assert_eq!(obj_type, "blob");
+        assert_eq!(obj_type, ObjectType::Blob);
         assert_eq!(body, content);
-        assert_eq!(hash.len(), 40);
+        assert_eq!(hash.to_hex().len(), 40);
     }
 
     #[test]
@@ -232,7 +233,7 @@ mod tests {
             expected_sub_hash
         );
 
-        assert_eq!(obj_type, "tree");
+        assert_eq!(obj_type, ObjectType::Tree);
         assert_eq!(pretty, expected);
     }
 }
