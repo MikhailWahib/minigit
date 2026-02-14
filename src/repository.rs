@@ -45,12 +45,11 @@ impl Repository {
     }
 
     pub fn ignore_file_name(&self) -> &str {
-        let name = if self.git_mode {
+        if self.git_mode {
             ".gitignore"
         } else {
             ".minigitignore"
-        };
-        name
+        }
     }
 
     fn find_git_dir(start: &Path, git_mode: bool) -> Result<PathBuf> {
@@ -68,7 +67,7 @@ impl Repository {
                 None => {
                     return Err(anyhow::anyhow!(
                         "not a {} repository (or any parent up to mount point /)",
-                        git_dir[1..].to_string()
+                        &git_dir[1..]
                     ));
                 }
             }

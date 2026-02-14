@@ -2,7 +2,6 @@ use anyhow::{Context, Result, anyhow};
 use flate2::Compression;
 use flate2::read::ZlibDecoder;
 use flate2::write::ZlibEncoder;
-use hex;
 use sha1::{Digest, Sha1};
 use std::{
     fs::{File, create_dir_all},
@@ -53,7 +52,10 @@ pub fn write_object(
 }
 
 /// Read and decompress a Git object from the object database
-pub fn read_object(hash: &ObjectId, objects_path: impl AsRef<Path>) -> Result<(ObjectType, Vec<u8>)> {
+pub fn read_object(
+    hash: &ObjectId,
+    objects_path: impl AsRef<Path>,
+) -> Result<(ObjectType, Vec<u8>)> {
     let hex_hash = hash.to_hex();
     let (dir, file_name) = hex_hash.split_at(2);
 
@@ -102,7 +104,7 @@ pub fn format_tree(data: &[u8]) -> Result<String> {
 
     while !reader.is_eof() {
         // Read "mode name" up to the NUL separator.
-        let mode_name = str::from_utf8(&reader.read_until_nul()?)?;
+        let mode_name = str::from_utf8(reader.read_until_nul()?)?;
         let parts: Vec<&str> = mode_name.split(' ').collect();
 
         if parts.len() != 2 {

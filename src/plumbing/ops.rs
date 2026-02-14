@@ -11,7 +11,7 @@ use crate::plumbing::index_tree::IndexTree;
 use crate::repository::Repository;
 
 pub fn hash_object(object_path: &str, write: bool, repo: &Repository) -> Result<String> {
-    let mut file = File::open(&object_path)
+    let mut file = File::open(object_path)
         .with_context(|| format!("Failed to open object at {}", object_path))?;
 
     let mut content = Vec::new();
@@ -102,10 +102,7 @@ pub fn commit_tree(
     let tree_id = ObjectId::from_hex(&tree)?;
     validate_object_reference(&tree_id, ObjectType::Tree, &objects_dir)?;
 
-    let parent_id = parent
-        .as_deref()
-        .map(ObjectId::from_hex)
-        .transpose()?;
+    let parent_id = parent.as_deref().map(ObjectId::from_hex).transpose()?;
 
     if let Some(parent_hash) = parent_id {
         validate_object_reference(&parent_hash, ObjectType::Commit, &objects_dir)?;

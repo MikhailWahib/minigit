@@ -4,7 +4,7 @@ pub struct Tree {
 
 impl Tree {
     pub fn from_entries(mut entries: Vec<TreeEntry>) -> Self {
-        entries.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));
+        entries.sort_by_key(|a| a.sort_key());
         Self { entries }
     }
 

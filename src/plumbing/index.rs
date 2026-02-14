@@ -6,7 +6,6 @@ use std::fs::OpenOptions;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
-use std::usize;
 use std::{fmt, fs};
 use std::{
     fs::File,
