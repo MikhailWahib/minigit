@@ -72,4 +72,3 @@ impl fmt::Display for ObjectId {
         write!(f, "{}", self.to_hex())
     }
 }
-

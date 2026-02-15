@@ -1,3 +1,4 @@
 /target
 /.minigit
 /test
+.minigitignore

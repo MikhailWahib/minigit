@@ -4,8 +4,13 @@ use crate::plumbing::index::IndexEntry;
 
 #[derive(Debug)]
 pub enum IndexTree {
-    Blob { mode: u32, sha1: [u8; 20] },
-    Tree { children: BTreeMap<String, IndexTree> },
+    Blob {
+        mode: u32,
+        sha1: [u8; 20],
+    },
+    Tree {
+        children: BTreeMap<String, IndexTree>,
+    },
 }
 
 impl IndexTree {
@@ -63,7 +68,11 @@ mod tests {
     #[test]
     fn builds_nested_structure_from_index_entries() {
         let tmp = tempdir_in(".").expect("tempdir");
-        let base = tmp.path().file_name().expect("tmp dir name").to_string_lossy();
+        let base = tmp
+            .path()
+            .file_name()
+            .expect("tmp dir name")
+            .to_string_lossy();
 
         let root_file = format!("{base}/root.txt");
         let nested_file = format!("{base}/dir/nested.txt");
