@@ -7,6 +7,8 @@ use crate::plumbing::cli::{
     cat_file, commit_tree, hash_object, ls_files, update_index, write_tree,
 };
 
+use crate::porcelain::cli::add;
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Cli {
@@ -22,6 +24,9 @@ pub struct Cli {
 pub enum Commands {
     /// Initialize a new minigit repo
     Init,
+    /// Add file contents to the index
+    Add { paths: Vec<String> },
+
     /// Hash an object
     HashObject {
         #[arg(short, long)]
@@ -80,6 +85,9 @@ impl Cli {
 
     fn run_with_repo(cmd: Commands, repo: &Repository) -> Result<()> {
         match cmd {
+            Commands::Add { paths } => {
+                add(paths, repo)?;
+            }
             Commands::HashObject { object_path, write } => {
                 let hash = hash_object(&object_path, write, repo)?;
                 println!("{hash}");

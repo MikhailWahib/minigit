@@ -7,6 +7,7 @@ mod config;
 mod plumbing;
 pub mod porcelain;
 mod repository;
+pub mod utils;
 
 fn main() -> Result<()> {
     let cli = Cli::parse();

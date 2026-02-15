@@ -1,6 +1,8 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::{
     env,
+    fs::File,
+    io::Read,
     path::{Path, PathBuf},
 };
 
@@ -44,7 +46,20 @@ impl Repository {
         &self.git_dir
     }
 
-    pub fn ignore_file_name(&self) -> &str {
+    pub fn get_ignored(&self) -> Result<Vec<PathBuf>> {
+        let ignore_file_path = self.work_tree.join(self.ignore_file_name());
+        let mut ignore_file =
+            File::open(ignore_file_path).with_context(|| "ignore file not found")?;
+        let mut ignore_content = String::new();
+        ignore_file.read_to_string(&mut ignore_content)?;
+
+        Ok(ignore_content
+            .lines()
+            .map(|p| self.work_tree.join(p.trim_start_matches('/')))
+            .collect())
+    }
+
+    fn ignore_file_name(&self) -> &str {
         if self.git_mode {
             ".gitignore"
         } else {
