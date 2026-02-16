@@ -2,15 +2,11 @@ use super::reader::Reader;
 use anyhow::{Result, bail};
 use sha1::{Digest, Sha1};
 use std::collections::BTreeMap;
-use std::fs::OpenOptions;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
 use std::{fmt, fs};
-use std::{
-    fs::File,
-    io::{Read, Write},
-};
+use std::io::Write;
 
 const SIGNATURE: [u8; 4] = *b"DIRC";
 const DEFAULT_VERSION: u32 = 2;
@@ -31,10 +27,7 @@ impl Index {
     }
 
     pub fn read(path: impl AsRef<Path>) -> Result<Self> {
-        let mut idx_file = File::open(path)?;
-
-        let mut index_buf = Vec::new();
-        idx_file.read_to_end(&mut index_buf)?;
+        let index_buf = fs::read(path)?;
 
         if index_buf.len() < 20 {
             bail!("Index file too short");
@@ -126,13 +119,6 @@ impl Index {
     }
 
     pub fn write(&self, path: impl AsRef<Path>) -> Result<()> {
-        let mut idx_file = OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(path)?;
-
         let mut content = Vec::new();
 
         content.write_all(&SIGNATURE)?;
@@ -147,11 +133,8 @@ impl Index {
         hasher.update(&content);
         let sha1: [u8; 20] = hasher.finalize().into();
 
-        idx_file.write_all(&content)?;
-        idx_file.write_all(&sha1)?;
-
-        idx_file.flush()?;
-        idx_file.sync_all()?;
+        content.extend_from_slice(&sha1);
+        fs::write(path, content)?;
 
         Ok(())
     }

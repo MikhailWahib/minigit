@@ -1,8 +1,7 @@
 use anyhow::{Context, Result};
 use std::{
     env,
-    fs::File,
-    io::Read,
+    fs,
     path::{Path, PathBuf},
 };
 
@@ -48,10 +47,8 @@ impl Repository {
 
     pub fn get_ignored(&self) -> Result<Vec<PathBuf>> {
         let ignore_file_path = self.work_tree.join(self.ignore_file_name());
-        let mut ignore_file =
-            File::open(ignore_file_path).with_context(|| "ignore file not found")?;
-        let mut ignore_content = String::new();
-        ignore_file.read_to_string(&mut ignore_content)?;
+        let ignore_content =
+            fs::read_to_string(ignore_file_path).with_context(|| "ignore file not found")?;
 
         Ok(ignore_content
             .lines()

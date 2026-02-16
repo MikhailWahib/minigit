@@ -1,6 +1,6 @@
 use anyhow::{Context, Result, anyhow};
-use std::fs::File;
-use std::io::{self, Read};
+use std::fs;
+use std::io;
 use std::path::Path;
 
 use super::core::{format_tree, hash_content, read_object, write_object, write_tree_recursive};
@@ -11,11 +11,8 @@ use crate::plumbing::index_tree::IndexTree;
 use crate::repository::Repository;
 
 pub fn hash_object(object_path: &str, write: bool, repo: &Repository) -> Result<ObjectId> {
-    let mut file = File::open(object_path)
+    let content = fs::read(object_path)
         .with_context(|| format!("Failed to open object at {}", object_path))?;
-
-    let mut content = Vec::new();
-    file.read_to_end(&mut content)?;
 
     if !write {
         return Ok(hash_content(&content, ObjectType::Blob));
