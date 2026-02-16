@@ -6,7 +6,7 @@ use crate::plumbing::cli::{
     cat_file, commit_tree, hash_object, ls_files, update_index, write_tree,
 };
 
-use crate::porcelain::cli::{add, init};
+use crate::porcelain::cli::{add, commit, init};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -25,6 +25,11 @@ pub enum Commands {
     Init,
     /// Add file contents to the index
     Add { paths: Vec<String> },
+    /// Record changes to the repository
+    Commit {
+        #[arg(short)]
+        message: String,
+    },
 
     /// Hash an object
     HashObject {
@@ -81,6 +86,9 @@ impl Cli {
         match cmd {
             Commands::Add { paths } => {
                 add(paths, repo)?;
+            }
+            Commands::Commit { message } => {
+                commit(message, repo)?;
             }
             Commands::HashObject { object_path, write } => {
                 let hash = hash_object(&object_path, write, repo)?;

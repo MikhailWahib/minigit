@@ -1,12 +1,13 @@
 use anyhow::{Result, anyhow};
 use std::{
-    fs::{DirEntry, File, create_dir_all},
+    fs::{self, DirEntry, File, create_dir_all},
     io::Write,
     path::PathBuf,
 };
 
 use crate::{
-    plumbing::ops::{hash_object, update_index},
+    plumbing::object::ObjectId,
+    plumbing::ops::{commit_tree, hash_object, update_index, write_tree},
     repository::Repository,
     utils,
 };
@@ -49,5 +50,30 @@ pub fn add(paths: Vec<String>, repo: &Repository) -> Result<()> {
         update_index(100644, object_id, file_path.to_string(), repo)?;
     }
 
+    Ok(())
+}
+
+pub fn commit(msg: String, repo: &Repository) -> Result<()> {
+    let head_ref = fs::read(repo.git_dir().join("HEAD"))?;
+
+    let branch_head = head_ref
+        .strip_prefix(b"ref: ")
+        .ok_or_else(|| anyhow!("error getting current branch head"))?;
+    let branch_head = str::from_utf8(branch_head)?;
+
+    let branch_head_path = repo.git_dir().join(branch_head);
+    let parent_commit = fs::read(&branch_head_path)?;
+    let parent_commit = str::from_utf8(&parent_commit)?;
+
+    let parent_commit = if parent_commit.is_empty() {
+        None
+    } else {
+        Some(ObjectId::from_hex(parent_commit)?)
+    };
+
+    let tree = write_tree(repo)?;
+    let commit_hash = commit_tree(tree, parent_commit, msg, repo)?;
+
+    fs::write(branch_head_path, commit_hash.to_hex())?;
     Ok(())
 }

@@ -13,3 +13,8 @@ pub fn add(paths: Vec<String>, repo: &Repository) -> Result<()> {
     ops::add(paths, repo)?;
     Ok(())
 }
+
+pub fn commit(msg: String, repo: &Repository) -> Result<()> {
+    ops::commit(msg, repo)?;
+    Ok(())
+}
