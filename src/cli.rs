@@ -1,5 +1,4 @@
 use anyhow::Result;
-use std::fs;
 
 use clap::{Parser, Subcommand};
 
@@ -7,7 +6,7 @@ use crate::plumbing::cli::{
     cat_file, commit_tree, hash_object, ls_files, update_index, write_tree,
 };
 
-use crate::porcelain::cli::add;
+use crate::porcelain::cli::{add, init};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -70,12 +69,7 @@ impl Cli {
         let Cli { git_mode, commands } = self;
 
         match commands {
-            Commands::Init => {
-                let repo = Repository::init(git_mode)?;
-                fs::create_dir_all(repo.git_dir().join("objects"))?;
-                println!("repo initialized");
-                Ok(())
-            }
+            Commands::Init => init(git_mode),
             cmd => {
                 let repo = Repository::discover(git_mode)?;
                 Self::run_with_repo(cmd, &repo)
