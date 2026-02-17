@@ -41,6 +41,9 @@ impl TreeEntry {
         }
     }
 
+    // directories are sorted as if they have a trailing '/'
+    // this means "foo.rs" comes before "foo/"
+    // so if the entry is a dir (tree), wee add a trailing '/' to sort properly
     fn sort_key(&self) -> String {
         if self.mode == 0o040000 {
             format!("{}/", self.name)
