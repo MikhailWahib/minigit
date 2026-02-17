@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::path::PathBuf;
 
-use crate::{porcelain::ops, repository::Repository};
+use crate::{output, porcelain::ops, repository::Repository};
 
 pub fn init(git_mode: bool) -> Result<()> {
     let repo = Repository::init(git_mode)?;
@@ -29,7 +29,7 @@ pub fn status(repo: &Repository) -> Result<()> {
     staged.sort_by(|a, b| a.1.cmp(&b.1).then(a.0.cmp(&b.0)));
 
     if staged.is_empty() && modified.is_empty() && untracked.is_empty() {
-        println!("nothing to commit, working tree clean");
+        println!("{}", output::green("nothing to commit, working tree clean"));
         return Ok(());
     }
 
@@ -38,7 +38,7 @@ pub fn status(repo: &Repository) -> Result<()> {
         println!("  (use \"minigit remove <file>...\" to unstage)");
         println!();
         for (status, file) in &staged {
-            println!("\t{status}:   {file}");
+            println!("\t{}:   {}", output::green(status), output::green(file));
         }
         println!();
     }
@@ -48,7 +48,7 @@ pub fn status(repo: &Repository) -> Result<()> {
         println!("  (use \"minigit add <file>...\" to update what will be committed)");
         println!();
         for file in &modified {
-            println!("\tmodified:   {file}");
+            println!("\t{}:   {}", output::red("modified"), output::red(file));
         }
         println!();
     }
@@ -58,13 +58,18 @@ pub fn status(repo: &Repository) -> Result<()> {
         println!("  (use \"minigit add <file>...\" to include in what will be committed)");
         println!();
         for file in &untracked {
-            println!("\t{file}");
+            println!("\t{}", output::red(file));
         }
         println!();
     }
 
     if staged.is_empty() {
-        println!("no changes added to commit (use \"minigit add\" and/or \"minigit commit\")");
+        println!(
+            "{}",
+            output::red(
+                "no changes added to commit (use \"minigit add\" and/or \"minigit commit\")"
+            )
+        );
     }
     Ok(())
 }
@@ -73,7 +78,11 @@ pub fn log(repo: &Repository) -> Result<()> {
     let commits = ops::log(repo)?;
 
     for (id, commit) in commits {
-        println!("commit {id}");
+        println!(
+            "{} {}",
+            output::yellow("commit"),
+            output::yellow(&id.to_string())
+        );
         println!("{commit}");
     }
 

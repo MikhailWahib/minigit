@@ -4,6 +4,7 @@ use clap::Parser;
 
 mod cli;
 mod config;
+mod output;
 mod plumbing;
 pub mod porcelain;
 mod repository;
