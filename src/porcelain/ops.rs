@@ -37,7 +37,7 @@ pub fn add(paths: Vec<String>, repo: &Repository) -> Result<()> {
 
     for file in files {
         let file_path = file
-            .strip_prefix(repo.work_tree().to_string_lossy().to_string())?
+            .strip_prefix(repo.work_tree())?
             .to_str()
             .ok_or_else(|| anyhow!("File path is not valid UTF-8"))?;
 

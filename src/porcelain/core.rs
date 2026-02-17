@@ -30,18 +30,15 @@ pub fn status_changes(repo: &Repository) -> Result<StatusChanges> {
     let mut worktree_files = Vec::new();
     utils::collect_files(worktree, &ignore, &mut worktree_files)?;
 
-    let mut worktree_files: Vec<String> = worktree_files
-        .iter()
-        .map(|p| p.to_string_lossy().to_string())
-        .collect();
-
     let mut untracked = Vec::new();
     let mut modified = Vec::new();
     let mut staged = Vec::new();
 
     let Some(idx) = read_index(repo)? else {
         // if no index found, all worktree is untracked
-        untracked.append(&mut worktree_files);
+        for file in &worktree_files {
+            untracked.push(path_to_rel_string(file, worktree)?);
+        }
         return Ok(StatusChanges {
             untracked,
             modified,
@@ -74,17 +71,14 @@ pub fn status_changes(repo: &Repository) -> Result<StatusChanges> {
 
     // check for modified (unstaged) and untracked files
     for file in worktree_files {
-        let rel_path = file
-            .strip_prefix(worktree.to_str().unwrap())
-            .unwrap()
-            .trim_start_matches('/');
+        let rel_path = path_to_rel_string(&file, worktree)?;
 
-        if let Some(idx_entry) = idx.get(rel_path) {
+        if let Some(idx_entry) = idx.get(&rel_path) {
             if idx_entry.is_modified(repo)? {
-                modified.push(rel_path.to_string());
+                modified.push(rel_path);
             }
         } else {
-            untracked.push(rel_path.to_string());
+            untracked.push(rel_path);
         }
     }
 
@@ -175,4 +169,12 @@ fn collect_tree_entries(
     }
 
     Ok(())
+}
+
+fn path_to_rel_string(path: &Path, worktree: &Path) -> Result<String> {
+    let relative = path.strip_prefix(worktree)?;
+    let value = relative
+        .to_str()
+        .ok_or_else(|| anyhow!("File path is not valid UTF-8"))?;
+    Ok(value.to_string())
 }
