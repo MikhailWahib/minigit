@@ -23,6 +23,7 @@ pub struct StatusChanges {
     pub staged: Vec<StagedChange>,
 }
 
+/// Computes untracked, modified, and staged changes for the current repository state.
 pub fn status_changes(repo: &Repository) -> Result<StatusChanges> {
     let worktree = repo.work_tree();
     let ignore = repo.get_ignored()?;
@@ -89,10 +90,12 @@ pub fn status_changes(repo: &Repository) -> Result<StatusChanges> {
     })
 }
 
+/// Returns true when at least one staged change exists.
 pub fn has_staged_changes(repo: &Repository) -> Result<bool> {
     Ok(!status_changes(repo)?.staged.is_empty())
 }
 
+/// Resolves the branch reference path pointed to by `HEAD`.
 pub fn head_ref_path(repo: &Repository) -> Result<PathBuf> {
     let head_ref = fs::read(repo.git_dir().join("HEAD"))?;
     let branch_head = head_ref
@@ -102,6 +105,7 @@ pub fn head_ref_path(repo: &Repository) -> Result<PathBuf> {
     Ok(repo.git_dir().join(branch_head))
 }
 
+/// Returns the current branch name derived from `HEAD`.
 pub fn current_branch(repo: &Repository) -> Result<String> {
     let path = head_ref_path(repo)?;
     let git_path = repo.git_dir();
@@ -117,6 +121,7 @@ pub fn current_branch(repo: &Repository) -> Result<String> {
     Ok(branch.to_owned())
 }
 
+/// Reads the commit pointed to by the current branch head, if present.
 pub fn read_head_commit(repo: &Repository) -> Result<Option<ObjectId>> {
     let branch_head_path = head_ref_path(repo)?;
     let branch_commit = match fs::read_to_string(&branch_head_path) {
@@ -133,11 +138,13 @@ pub fn read_head_commit(repo: &Repository) -> Result<Option<ObjectId>> {
     Ok(Some(ObjectId::from_hex(branch_commit)?))
 }
 
+/// Reads the index file if it exists.
 fn read_index(repo: &Repository) -> Result<Option<Index>> {
     let idx_path = repo.git_dir().join("index");
     Index::read_optional(idx_path)
 }
 
+/// Collects a map of file paths to blob object ids from the HEAD tree.
 fn get_head_tree_entries(repo: &Repository) -> Result<BTreeMap<String, [u8; 20]>> {
     let mut entries = BTreeMap::new();
     let Some(commit_id) = read_head_commit(repo)? else {
@@ -151,6 +158,7 @@ fn get_head_tree_entries(repo: &Repository) -> Result<BTreeMap<String, [u8; 20]>
     Ok(entries)
 }
 
+/// Recursively walks a tree object and flattens blob entries into `entries`.
 fn collect_tree_entries(
     repo: &Repository,
     tree_id: ObjectId,
@@ -171,6 +179,7 @@ fn collect_tree_entries(
     Ok(())
 }
 
+/// Converts an absolute path under `worktree` into a UTF-8 relative string path.
 fn path_to_rel_string(path: &Path, worktree: &Path) -> Result<String> {
     let relative = path.strip_prefix(worktree)?;
     let value = relative
