@@ -63,6 +63,7 @@ mod tests {
     use super::IndexTree;
     use crate::plumbing::index::Index;
     use std::fs;
+    use std::path::Path;
     use tempfile::tempdir_in;
 
     #[test]
@@ -82,10 +83,10 @@ mod tests {
 
         let mut index = Index::new();
         index
-            .add(root_file.clone(), [0x10; 20], 0o100644)
+            .add(root_file.clone(), [0x10; 20], 0o100644, Path::new("."))
             .expect("add root");
         index
-            .add(nested_file, [0x20; 20], 0o100644)
+            .add(nested_file, [0x20; 20], 0o100644, Path::new("."))
             .expect("add nested");
 
         let tree = IndexTree::from_idx_entries(index.entries());

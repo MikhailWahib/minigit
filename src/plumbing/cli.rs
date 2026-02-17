@@ -6,7 +6,9 @@ use super::object::ObjectId;
 use super::ops;
 
 pub fn hash_object(object_path: &str, write: bool, repo: &Repository) -> Result<()> {
-    let hash = ops::hash_object(object_path, write, repo).map(|id| id.to_string())?;
+    let resolved_path = repo.resolve_from_cwd(object_path);
+    let path = resolved_path.to_string_lossy().to_string();
+    let hash = ops::hash_object(&path, write, repo).map(|id| id.to_string())?;
     println!("{hash}");
     Ok(())
 }

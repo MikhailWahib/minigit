@@ -158,8 +158,8 @@ impl Index {
         Ok(())
     }
 
-    pub fn add(&mut self, path: String, sha1: [u8; 20], mode: u32) -> Result<()> {
-        let new_entry = IndexEntry::new(path, sha1, mode)?;
+    pub fn add(&mut self, path: String, sha1: [u8; 20], mode: u32, work_tree: &Path) -> Result<()> {
+        let new_entry = IndexEntry::new(path, sha1, mode, work_tree)?;
 
         self.entries.insert(new_entry.name.clone(), new_entry);
 
@@ -202,14 +202,14 @@ pub struct IndexEntry {
 }
 
 impl IndexEntry {
-    fn new(path: String, sha1: [u8; 20], mode: u32) -> Result<Self> {
+    fn new(path: String, sha1: [u8; 20], mode: u32, work_tree: &Path) -> Result<Self> {
         // reject long names for now
         // TODO: handle long entry names
         if path.len() > 0x0FFF {
             bail!("path too long for index entry (max 4095 bytes)");
         }
 
-        let metadata = fs::metadata(&path)?;
+        let metadata = fs::metadata(work_tree.join(&path))?;
         let ctime_secs = metadata.ctime() as u32;
         let ctime_nano = metadata.ctime_nsec() as u32;
         let mtime = metadata.modified()?.duration_since(UNIX_EPOCH)?;
@@ -330,6 +330,7 @@ impl fmt::Display for IndexEntry {
 mod tests {
     use super::Index;
     use std::fs;
+    use std::path::Path;
     use tempfile::tempdir_in;
 
     #[test]
@@ -348,10 +349,10 @@ mod tests {
 
         let mut index = Index::new();
         index
-            .add(file_b.clone(), [0xBB; 20], 0o100644)
+            .add(file_b.clone(), [0xBB; 20], 0o100644, Path::new("."))
             .expect("add b");
         index
-            .add(file_a.clone(), [0xAA; 20], 0o100644)
+            .add(file_a.clone(), [0xAA; 20], 0o100644, Path::new("."))
             .expect("add a");
 
         let index_path = tmp.path().join("index");
@@ -380,7 +381,7 @@ mod tests {
 
         let mut index = Index::new();
         index
-            .add(file, [0x11; 20], 0o100644)
+            .add(file, [0x11; 20], 0o100644, Path::new("."))
             .expect("add index entry");
 
         let path = tmp.path().join("index");

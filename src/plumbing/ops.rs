@@ -24,12 +24,12 @@ pub fn hash_object(object_path: &str, write: bool, repo: &Repository) -> Result<
         return Ok(hash_content(&content, ObjectType::Blob));
     }
 
-    let objects_dir = repo.git_dir().join("objects");
+    let objects_dir = repo.objects_dir();
     write_object(&content, ObjectType::Blob, &objects_dir)
 }
 
 pub fn cat_file(object_id: ObjectId, typ: bool, repo: &Repository) -> Result<String> {
-    let objects_dir = repo.git_dir().join("objects");
+    let objects_dir = repo.objects_dir();
     let (obj_type, body) = read_object(&object_id, &objects_dir)?;
 
     if typ {
@@ -46,7 +46,7 @@ pub fn cat_file(object_id: ObjectId, typ: bool, repo: &Repository) -> Result<Str
 }
 
 pub fn read_commit(object_id: ObjectId, repo: &Repository) -> Result<Commit> {
-    let objects_dir = repo.git_dir().join("objects");
+    let objects_dir = repo.objects_dir();
     let (obj_type, body) = read_object(&object_id, &objects_dir)?;
     if obj_type != ObjectType::Commit {
         return Err(anyhow!(
@@ -58,7 +58,7 @@ pub fn read_commit(object_id: ObjectId, repo: &Repository) -> Result<Commit> {
 }
 
 pub fn read_tree(object_id: ObjectId, repo: &Repository) -> Result<Vec<TreeEntryData>> {
-    let objects_dir = repo.git_dir().join("objects");
+    let objects_dir = repo.objects_dir();
     let (obj_type, body) = read_object(&object_id, &objects_dir)?;
     if obj_type != ObjectType::Tree {
         return Err(anyhow!(
@@ -93,23 +93,23 @@ pub fn read_tree(object_id: ObjectId, repo: &Repository) -> Result<Vec<TreeEntry
 }
 
 pub fn ls_files(repo: &Repository) -> Result<Option<String>> {
-    let idx_path = repo.git_dir().join("index");
+    let idx_path = repo.index_path();
 
     Ok(Index::read_optional(idx_path)?.map(|idx| idx.to_string()))
 }
 
 pub fn update_index(mode: u32, object: ObjectId, file: String, repo: &Repository) -> Result<()> {
-    let idx_path = repo.git_dir().join("index");
+    let idx_path = repo.index_path();
     let mut idx = Index::read_or_new(&idx_path)?;
 
-    idx.add(file, object.as_bytes(), mode)?;
+    idx.add(file, object.as_bytes(), mode, repo.work_tree())?;
     idx.write(idx_path)?;
 
     Ok(())
 }
 
 pub fn remove_from_index(file: String, repo: &Repository) -> Result<()> {
-    let idx_path = repo.git_dir().join("index");
+    let idx_path = repo.index_path();
     let mut idx = Index::read_or_new(&idx_path)?;
 
     idx.remove(file);
@@ -119,11 +119,11 @@ pub fn remove_from_index(file: String, repo: &Repository) -> Result<()> {
 }
 
 pub fn write_tree(repo: &Repository) -> Result<ObjectId> {
-    let idx = Index::read(repo.git_dir().join("index"))?;
+    let idx = Index::read(repo.index_path())?;
     let entries = idx.entries();
     let idx_dir_tree = IndexTree::from_idx_entries(entries);
 
-    let objects_dir = repo.git_dir().join("objects");
+    let objects_dir = repo.objects_dir();
     write_tree_recursive(&idx_dir_tree, &objects_dir)
 }
 
@@ -133,7 +133,7 @@ pub fn commit_tree(
     message: String,
     repo: &Repository,
 ) -> Result<ObjectId> {
-    let objects_dir = repo.git_dir().join("objects");
+    let objects_dir = repo.objects_dir();
     validate_object_reference(&tree, ObjectType::Tree, &objects_dir)?;
 
     if let Some(parent_hash) = parent {

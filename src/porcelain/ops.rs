@@ -27,12 +27,12 @@ pub fn init(repo: &Repository) -> Result<()> {
 }
 
 pub fn add(paths: Vec<String>, repo: &Repository) -> Result<()> {
-    let worktree = repo.work_tree();
     let ignore = repo.get_ignored()?;
 
     let mut files: Vec<PathBuf> = Vec::new();
     for path in &paths {
-        utils::collect_files(&worktree.join(path), &ignore, &mut files)?;
+        let path = repo.resolve_from_cwd(path);
+        utils::collect_files(&path, &ignore, &mut files)?;
     }
 
     for file in files {
@@ -41,7 +41,10 @@ pub fn add(paths: Vec<String>, repo: &Repository) -> Result<()> {
             .to_str()
             .ok_or_else(|| anyhow!("File path is not valid UTF-8"))?;
 
-        let object_id = hash_object(file_path, true, repo)?;
+        let abs_path = file
+            .to_str()
+            .ok_or_else(|| anyhow!("File path is not valid UTF-8"))?;
+        let object_id = hash_object(abs_path, true, repo)?;
         update_index(100644, object_id, file_path.to_string(), repo)?;
     }
 
@@ -74,7 +77,7 @@ pub fn remove(paths: Vec<String>, repo: &Repository) -> Result<()> {
     let mut files = Vec::new();
 
     for p in &paths {
-        let p = worktree_path.join(p);
+        let p = repo.resolve_from_cwd(p);
         utils::collect_files(&p, &ignore, &mut files)?;
     }
 
@@ -95,7 +98,9 @@ pub fn remove(paths: Vec<String>, repo: &Repository) -> Result<()> {
     Ok(())
 }
 
-pub fn log(repo: &Repository) -> Result<Vec<(plumbing::object::ObjectId, plumbing::commit::Commit)>> {
+pub fn log(
+    repo: &Repository,
+) -> Result<Vec<(plumbing::object::ObjectId, plumbing::commit::Commit)>> {
     let branch = core::current_branch(repo)?;
     let mut commits = Vec::new();
     let Some(head_commit) = core::read_head_commit(repo)? else {
