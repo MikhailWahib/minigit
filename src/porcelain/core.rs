@@ -104,6 +104,21 @@ pub fn head_ref_path(repo: &Repository) -> Result<PathBuf> {
     Ok(repo.git_dir().join(branch_head))
 }
 
+pub fn current_branch(repo: &Repository) -> Result<String> {
+    let path = head_ref_path(repo)?;
+    let git_path = repo.git_dir();
+
+    let branch = path
+        .strip_prefix(format!(
+            "{}/refs/heads/",
+            git_path.to_string_lossy().to_string()
+        ))?
+        .to_str()
+        .ok_or_else(|| anyhow!("Malformed ref"))?;
+
+    Ok(branch.to_owned())
+}
+
 pub fn read_head_commit(repo: &Repository) -> Result<Option<ObjectId>> {
     let branch_head_path = head_ref_path(repo)?;
     let branch_commit = match fs::read_to_string(&branch_head_path) {

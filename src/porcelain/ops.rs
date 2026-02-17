@@ -94,3 +94,20 @@ pub fn remove(paths: Vec<String>, repo: &Repository) -> Result<()> {
 
     Ok(())
 }
+
+pub fn log(repo: &Repository) -> Result<Vec<(plumbing::object::ObjectId, plumbing::commit::Commit)>> {
+    let branch = core::current_branch(repo)?;
+    let mut commits = Vec::new();
+    let Some(head_commit) = core::read_head_commit(repo)? else {
+        bail!("your current branch '{branch}' does not have any commits yet")
+    };
+
+    let mut current = Some(head_commit);
+    while let Some(commit_id) = current {
+        let commit = plumbing::ops::read_commit(commit_id, repo)?;
+        current = commit.parent();
+        commits.push((commit_id, commit));
+    }
+
+    Ok(commits)
+}

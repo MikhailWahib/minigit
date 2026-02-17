@@ -67,3 +67,14 @@ pub fn status(repo: &Repository) -> Result<()> {
     }
     Ok(())
 }
+
+pub fn log(repo: &Repository) -> Result<()> {
+    let commits = ops::log(repo)?;
+
+    for (id, commit) in commits {
+        println!("commit {id}");
+        println!("{commit}");
+    }
+
+    Ok(())
+}

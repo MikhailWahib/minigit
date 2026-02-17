@@ -17,7 +17,6 @@ pub struct Cli {
     commands: Commands,
 }
 
-// TODO: remove, log
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// Initialize a new minigit repo
@@ -31,6 +30,8 @@ pub enum Commands {
     },
     /// Show the working tree status
     Status,
+    /// Show commit logs
+    Log,
     /// Unstage file(s) - eq. for `git restore --staged`
     Remove { files: Vec<String> },
 
@@ -95,6 +96,9 @@ impl Cli {
             }
             Commands::Status => {
                 porcelain::cli::status(repo)?;
+            }
+            Commands::Log => {
+                porcelain::cli::log(repo)?;
             }
             Commands::Remove { files } => {
                 porcelain::cli::remove(files, repo)?;

@@ -38,6 +38,18 @@ pub fn cat_file(object_id: ObjectId, typ: bool, repo: &Repository) -> Result<Str
     Ok(body_str.to_string())
 }
 
+pub fn read_commit(object_id: ObjectId, repo: &Repository) -> Result<Commit> {
+    let objects_dir = repo.git_dir().join("objects");
+    let (obj_type, body) = read_object(&object_id, &objects_dir)?;
+    if obj_type != ObjectType::Commit {
+        return Err(anyhow!(
+            "invalid object type for {object_id}: expected commit, got {obj_type}"
+        ));
+    }
+
+    Commit::from_bytes(&body)
+}
+
 pub fn ls_files(repo: &Repository) -> Result<Option<String>> {
     let idx_path = repo.git_dir().join("index");
 

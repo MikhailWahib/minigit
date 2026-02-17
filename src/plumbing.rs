@@ -1,5 +1,5 @@
 pub mod cli;
-mod commit;
+pub mod commit;
 mod core;
 pub mod index;
 mod index_tree;
