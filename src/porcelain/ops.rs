@@ -26,7 +26,7 @@ pub fn init(repo: &Repository) -> Result<()> {
     Ok(())
 }
 
-pub fn add(paths: Vec<String>, repo: &Repository) -> Result<()> {
+pub fn add(paths: Vec<PathBuf>, repo: &Repository) -> Result<()> {
     let ignore = repo.get_ignored()?;
 
     let mut files: Vec<PathBuf> = Vec::new();
@@ -42,10 +42,7 @@ pub fn add(paths: Vec<String>, repo: &Repository) -> Result<()> {
             .to_str()
             .ok_or_else(|| anyhow!("File path is not valid UTF-8"))?;
 
-        let abs_path = file
-            .to_str()
-            .ok_or_else(|| anyhow!("File path is not valid UTF-8"))?;
-        let object_id = hash_object(abs_path, true, repo)?;
+        let object_id = hash_object(&file, true, repo)?;
         staged_entries.push((100644, object_id, file_path.to_string()));
     }
     update_index_batch(staged_entries, repo)?;
@@ -73,7 +70,7 @@ pub fn status(repo: &Repository) -> Result<(Vec<String>, Vec<String>, Vec<(Strin
     Ok((changes.untracked, changes.modified, changes.staged))
 }
 
-pub fn remove(paths: Vec<String>, repo: &Repository) -> Result<()> {
+pub fn remove(paths: Vec<PathBuf>, repo: &Repository) -> Result<()> {
     let worktree_path = repo.work_tree();
     let ignore = repo.get_ignored()?;
     let mut files = Vec::new();

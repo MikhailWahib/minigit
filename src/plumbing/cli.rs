@@ -1,14 +1,13 @@
-use anyhow::Result;
-
 use crate::repository::Repository;
+use anyhow::{Result, anyhow};
+use std::path::{Path, PathBuf};
 
 use super::object::ObjectId;
 use super::ops;
 
-pub fn hash_object(object_path: &str, write: bool, repo: &Repository) -> Result<()> {
+pub fn hash_object(object_path: &Path, write: bool, repo: &Repository) -> Result<()> {
     let resolved_path = repo.resolve_from_cwd(object_path);
-    let path = resolved_path.to_string_lossy().to_string();
-    let hash = ops::hash_object(&path, write, repo).map(|id| id.to_string())?;
+    let hash = ops::hash_object(&resolved_path, write, repo).map(|id| id.to_string())?;
     println!("{hash}");
     Ok(())
 }
@@ -33,9 +32,13 @@ pub fn ls_files(repo: &Repository) -> Result<()> {
     Ok(())
 }
 
-pub fn update_index(mode: &str, object: &str, path: String, repo: &Repository) -> Result<()> {
+pub fn update_index(mode: &str, object: &str, path: PathBuf, repo: &Repository) -> Result<()> {
     let mode_u32 = mode.parse::<u32>()?;
     let object_id = ObjectId::from_hex(object)?;
+    let path = path
+        .to_str()
+        .ok_or_else(|| anyhow!("Path is not valid UTF-8"))?
+        .to_string();
     ops::update_index(mode_u32, object_id, path, repo)
 }
 

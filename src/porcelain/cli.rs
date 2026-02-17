@@ -1,4 +1,5 @@
 use anyhow::Result;
+use std::path::PathBuf;
 
 use crate::{porcelain::ops, repository::Repository};
 
@@ -9,7 +10,7 @@ pub fn init(git_mode: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn add(paths: Vec<String>, repo: &Repository) -> Result<()> {
+pub fn add(paths: Vec<PathBuf>, repo: &Repository) -> Result<()> {
     ops::add(paths, repo)
 }
 
@@ -17,7 +18,7 @@ pub fn commit(msg: String, repo: &Repository) -> Result<()> {
     ops::commit(msg, repo)
 }
 
-pub fn remove(paths: Vec<String>, repo: &Repository) -> Result<()> {
+pub fn remove(paths: Vec<PathBuf>, repo: &Repository) -> Result<()> {
     ops::remove(paths, repo)
 }
 

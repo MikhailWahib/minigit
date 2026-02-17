@@ -16,9 +16,14 @@ pub struct TreeEntryData {
     pub object_type: ObjectType,
 }
 
-pub fn hash_object(object_path: &str, write: bool, repo: &Repository) -> Result<ObjectId> {
+pub fn hash_object(
+    object_path: impl AsRef<Path>,
+    write: bool,
+    repo: &Repository,
+) -> Result<ObjectId> {
+    let object_path = object_path.as_ref();
     let content = fs::read(object_path)
-        .with_context(|| format!("Failed to open object at {}", object_path))?;
+        .with_context(|| format!("Failed to open object at {}", object_path.display()))?;
 
     if !write {
         return Ok(hash_content(&content, ObjectType::Blob));
@@ -102,10 +107,7 @@ pub fn update_index(mode: u32, object: ObjectId, file: String, repo: &Repository
     update_index_batch(vec![(mode, object, file)], repo)
 }
 
-pub fn update_index_batch(
-    entries: Vec<(u32, ObjectId, String)>,
-    repo: &Repository,
-) -> Result<()> {
+pub fn update_index_batch(entries: Vec<(u32, ObjectId, String)>, repo: &Repository) -> Result<()> {
     let idx_path = repo.index_path();
     let mut idx = Index::read_or_new(&idx_path)?;
 

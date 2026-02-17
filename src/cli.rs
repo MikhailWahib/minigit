@@ -1,4 +1,5 @@
 use anyhow::Result;
+use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 
@@ -22,7 +23,7 @@ pub enum Commands {
     /// Initialize a new minigit repo
     Init,
     /// Add file contents to the index
-    Add { paths: Vec<String> },
+    Add { paths: Vec<PathBuf> },
     /// Record changes to the repository
     Commit {
         #[arg(short)]
@@ -33,7 +34,7 @@ pub enum Commands {
     /// Show commit logs
     Log,
     /// Unstage file(s) - eq. for `git restore --staged`
-    Remove { files: Vec<String> },
+    Remove { files: Vec<PathBuf> },
 
     /// Hash an object
     HashObject {
@@ -41,7 +42,7 @@ pub enum Commands {
         /// Store the object in minigit database
         write: bool,
         /// Path for object
-        object_path: String,
+        object_path: PathBuf,
     },
     /// Prints out the content of a given file in minigit database
     CatFile {
@@ -57,7 +58,7 @@ pub enum Commands {
     UpdateIndex {
         mode: String,
         object: String,
-        path: String,
+        path: PathBuf,
     },
     /// Creates a tree object from the current index
     WriteTree,
