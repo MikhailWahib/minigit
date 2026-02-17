@@ -1,7 +1,6 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::{
-    env,
-    fs,
+    env, fs,
     path::{Path, PathBuf},
 };
 
@@ -47,8 +46,10 @@ impl Repository {
 
     pub fn get_ignored(&self) -> Result<Vec<PathBuf>> {
         let ignore_file_path = self.work_tree.join(self.ignore_file_name());
-        let ignore_content =
-            fs::read_to_string(ignore_file_path).with_context(|| "ignore file not found")?;
+        let mut ignore_content =
+            fs::read_to_string(ignore_file_path).unwrap_or(".minigit\n.git\n".to_string());
+        ignore_content.push_str(".minigit\n");
+        ignore_content.push_str(".git\n");
 
         Ok(ignore_content
             .lines()

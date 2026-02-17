@@ -1,12 +1,14 @@
+use crate::repository::Repository;
+
 use super::reader::Reader;
 use anyhow::{Result, bail};
 use sha1::{Digest, Sha1};
 use std::collections::BTreeMap;
+use std::io::Write;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
 use std::{fmt, fs};
-use std::io::Write;
 
 const SIGNATURE: [u8; 4] = *b"DIRC";
 const DEFAULT_VERSION: u32 = 2;
@@ -150,6 +152,14 @@ impl Index {
     pub fn entries(&self) -> Vec<&IndexEntry> {
         self.entries.values().collect()
     }
+
+    pub fn entries_map(&self) -> &BTreeMap<String, IndexEntry> {
+        &self.entries
+    }
+
+    pub fn get(&self, name: &str) -> Option<&IndexEntry> {
+        self.entries.get(name)
+    }
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
@@ -231,6 +241,39 @@ impl IndexEntry {
         w.write_all(&padding[..self.padding as usize])?;
 
         Ok(())
+    }
+
+    pub fn is_modified(&self, repo: &Repository) -> Result<bool> {
+        let abs_path = repo.work_tree().join(&self.name);
+        let metadata = fs::metadata(&abs_path)?;
+        let modified_dur = metadata.modified()?.duration_since(UNIX_EPOCH)?;
+        let cur_mtime_secs = modified_dur.as_secs() as u32;
+        let cur_mtime_nano = modified_dur.subsec_nanos() as u32;
+        let cur_size = metadata.size() as u32;
+
+        // check mtimes
+        if self.mtime_secs != cur_mtime_secs || self.mtime_nano != cur_mtime_nano {
+            return Ok(true);
+        }
+
+        // check size
+        if self.file_size != cur_size {
+            return Ok(true);
+        }
+
+        // check file hash
+        let file_content = fs::read(&abs_path)?;
+        let header = format!("blob {}\0", file_content.len());
+        let mut hasher = Sha1::new();
+        hasher.update(header.as_bytes());
+        hasher.update(&file_content);
+        let cur_sha1: [u8; 20] = hasher.finalize().into();
+
+        if self.sha1 != cur_sha1 {
+            return Ok(true);
+        }
+
+        Ok(false)
     }
 }
 

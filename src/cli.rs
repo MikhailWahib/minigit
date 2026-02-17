@@ -6,7 +6,7 @@ use crate::plumbing::cli::{
     cat_file, commit_tree, hash_object, ls_files, update_index, write_tree,
 };
 
-use crate::porcelain::cli::{add, commit, init};
+use crate::porcelain::cli::{add, commit, init, status};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -30,6 +30,8 @@ pub enum Commands {
         #[arg(short)]
         message: String,
     },
+    /// Show the working tree status
+    Status,
 
     /// Hash an object
     HashObject {
@@ -89,6 +91,9 @@ impl Cli {
             }
             Commands::Commit { message } => {
                 commit(message, repo)?;
+            }
+            Commands::Status => {
+                status(repo)?;
             }
             Commands::HashObject { object_path, write } => {
                 let hash = hash_object(&object_path, write, repo)?;

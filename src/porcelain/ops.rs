@@ -1,15 +1,17 @@
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 use std::{
-    fs::{self, DirEntry, File, create_dir_all},
+    fs::{self, File, create_dir_all},
     io::Write,
     path::PathBuf,
 };
 
 use crate::{
-    plumbing::object::ObjectId,
-    plumbing::ops::{commit_tree, hash_object, update_index, write_tree},
+    plumbing::{
+        ops::{commit_tree, hash_object, update_index, write_tree},
+    },
+    porcelain::core,
+    porcelain::utils,
     repository::Repository,
-    utils,
 };
 
 pub fn init(repo: &Repository) -> Result<()> {
@@ -28,16 +30,9 @@ pub fn add(paths: Vec<String>, repo: &Repository) -> Result<()> {
     let worktree = repo.work_tree();
     let ignore = repo.get_ignored()?;
 
-    let dir_entries: Vec<DirEntry> = paths
-        .iter()
-        .flat_map(|p| worktree.join(p).read_dir().into_iter().flatten())
-        .flatten()
-        .filter(|p| !ignore.contains(&p.path()))
-        .collect();
-
     let mut files: Vec<PathBuf> = Vec::new();
-    for entry in &dir_entries {
-        files.append(&mut utils::walk_dir(entry)?);
+    for path in &paths {
+        utils::collect_files(&worktree.join(path), &ignore, &mut files)?;
     }
 
     for file in files {
@@ -54,26 +49,21 @@ pub fn add(paths: Vec<String>, repo: &Repository) -> Result<()> {
 }
 
 pub fn commit(msg: String, repo: &Repository) -> Result<()> {
-    let head_ref = fs::read(repo.git_dir().join("HEAD"))?;
+    if !core::has_staged_changes(repo)? {
+        bail!("no changes added to commit (use \"git add\" and/or \"git commit -a\")");
+    }
 
-    let branch_head = head_ref
-        .strip_prefix(b"ref: ")
-        .ok_or_else(|| anyhow!("error getting current branch head"))?;
-    let branch_head = str::from_utf8(branch_head)?;
-
-    let branch_head_path = repo.git_dir().join(branch_head);
-    let parent_commit = fs::read(&branch_head_path)?;
-    let parent_commit = str::from_utf8(&parent_commit)?;
-
-    let parent_commit = if parent_commit.is_empty() {
-        None
-    } else {
-        Some(ObjectId::from_hex(parent_commit)?)
-    };
+    let branch_head_path = core::head_ref_path(repo)?;
+    let parent_commit = core::read_head_commit(repo)?;
 
     let tree = write_tree(repo)?;
     let commit_hash = commit_tree(tree, parent_commit, msg, repo)?;
 
     fs::write(branch_head_path, commit_hash.to_hex())?;
     Ok(())
+}
+
+pub fn status(repo: &Repository) -> Result<(Vec<String>, Vec<String>, Vec<(String, String)>)> {
+    let changes = core::status_changes(repo)?;
+    Ok((changes.untracked, changes.modified, changes.staged))
 }
