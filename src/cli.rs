@@ -2,11 +2,9 @@ use anyhow::Result;
 
 use clap::{Parser, Subcommand};
 
-use crate::plumbing::cli::{
-    cat_file, commit_tree, hash_object, ls_files, update_index, write_tree,
-};
+use crate::plumbing::{self};
 
-use crate::porcelain::cli::{add, commit, init, status};
+use crate::porcelain::{self};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -76,7 +74,7 @@ impl Cli {
         let Cli { git_mode, commands } = self;
 
         match commands {
-            Commands::Init => init(git_mode),
+            Commands::Init => porcelain::cli::init(git_mode),
             cmd => {
                 let repo = Repository::discover(git_mode)?;
                 Self::run_with_repo(cmd, &repo)
@@ -87,45 +85,35 @@ impl Cli {
     fn run_with_repo(cmd: Commands, repo: &Repository) -> Result<()> {
         match cmd {
             Commands::Add { paths } => {
-                add(paths, repo)?;
+                porcelain::cli::add(paths, repo)?;
             }
             Commands::Commit { message } => {
-                commit(message, repo)?;
+                porcelain::cli::commit(message, repo)?;
             }
             Commands::Status => {
-                status(repo)?;
+                porcelain::cli::status(repo)?;
             }
             Commands::HashObject { object_path, write } => {
-                let hash = hash_object(&object_path, write, repo)?;
-                println!("{hash}");
+                plumbing::cli::hash_object(&object_path, write, repo)?;
             }
             Commands::CatFile { object, typ } => {
-                let output = cat_file(&object, typ, repo)?;
-                if typ {
-                    println!("{output}");
-                } else {
-                    print!("{output}");
-                }
+                plumbing::cli::cat_file(&object, typ, repo)?;
             }
             Commands::LsFiles => {
-                if let Some(output) = ls_files(repo)? {
-                    print!("{output}");
-                }
+                plumbing::cli::ls_files(repo)?;
             }
             Commands::UpdateIndex { mode, object, path } => {
-                update_index(&mode, &object, path, repo)?;
+                plumbing::cli::update_index(&mode, &object, path, repo)?;
             }
             Commands::WriteTree => {
-                let hash = write_tree(repo)?;
-                println!("{hash}");
+                plumbing::cli::write_tree(repo)?;
             }
             Commands::CommitTree {
                 tree,
                 parent,
                 message,
             } => {
-                let hash = commit_tree(tree, parent, message, repo)?;
-                println!("{hash}");
+                plumbing::cli::commit_tree(tree, parent, message, repo)?;
             }
             Commands::Init => unreachable!(),
         }
