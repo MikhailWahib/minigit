@@ -11,7 +11,8 @@ impl<'a> Reader<'a> {
         Self { buf, offset: 0 }
     }
 
-    pub fn _position(&self) -> usize {
+    #[cfg(test)]
+    fn position(&self) -> usize {
         self.offset
     }
 
@@ -76,7 +77,7 @@ mod tests {
         assert_eq!(reader.read_u16().expect("read_u16"), 0x9ABC);
         reader.skip(1).expect("skip");
         assert_eq!(reader.read_exact(1).expect("read_exact"), &[0xF0]);
-        assert_eq!(reader._position(), buf.len());
+        assert_eq!(reader.position(), buf.len());
     }
 
     #[test]

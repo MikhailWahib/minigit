@@ -89,7 +89,7 @@ pub fn remove(paths: Vec<String>, repo: &Repository) -> Result<()> {
         .collect();
 
     for f in files {
-        plumbing::ops::remove_from_inedx(f, repo)?;
+        plumbing::ops::remove_from_index(f, repo)?;
     }
 
     Ok(())

@@ -5,7 +5,7 @@ use crate::{porcelain::ops, repository::Repository};
 pub fn init(git_mode: bool) -> Result<()> {
     let repo = Repository::init(git_mode)?;
     ops::init(&repo)?;
-    println!("repo initialized at {}", repo.git_dir().to_str().unwrap());
+    println!("repo initialized at {}", repo.git_dir().display());
     Ok(())
 }
 

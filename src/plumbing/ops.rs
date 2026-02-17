@@ -66,7 +66,7 @@ pub fn update_index(mode: u32, object: ObjectId, file: String, repo: &Repository
     Ok(())
 }
 
-pub fn remove_from_inedx(file: String, repo: &Repository) -> Result<()> {
+pub fn remove_from_index(file: String, repo: &Repository) -> Result<()> {
     let idx_path = repo.git_dir().join("index");
     let mut idx = Index::read_or_new(&idx_path)?;
 
