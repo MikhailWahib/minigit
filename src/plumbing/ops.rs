@@ -1,6 +1,5 @@
 use anyhow::{Context, Result, anyhow};
 use std::fs;
-use std::io;
 use std::path::Path;
 
 use super::core::{format_tree, hash_content, read_object, write_object, write_tree_recursive};
@@ -42,31 +41,12 @@ pub fn cat_file(object_id: ObjectId, typ: bool, repo: &Repository) -> Result<Str
 pub fn ls_files(repo: &Repository) -> Result<Option<String>> {
     let idx_path = repo.git_dir().join("index");
 
-    match Index::read(idx_path) {
-        Ok(idx) => Ok(Some(idx.to_string())),
-        Err(e)
-            if e.downcast_ref::<io::Error>()
-                .is_some_and(|e| e.kind() == io::ErrorKind::NotFound) =>
-        {
-            // ignore missing index
-            Ok(None)
-        }
-        Err(e) => Err(e),
-    }
+    Ok(Index::read_optional(idx_path)?.map(|idx| idx.to_string()))
 }
 
 pub fn update_index(mode: u32, object: ObjectId, file: String, repo: &Repository) -> Result<()> {
     let idx_path = repo.git_dir().join("index");
-    let mut idx = match Index::read(&idx_path) {
-        Ok(i) => i,
-        Err(e)
-            if e.downcast_ref::<io::Error>()
-                .is_some_and(|e| e.kind() == io::ErrorKind::NotFound) =>
-        {
-            Index::new()
-        }
-        Err(e) => return Err(e),
-    };
+    let mut idx = Index::read_or_new(&idx_path)?;
 
     idx.add(file, object.as_bytes(), mode)?;
     idx.write(idx_path)?;
@@ -76,16 +56,7 @@ pub fn update_index(mode: u32, object: ObjectId, file: String, repo: &Repository
 
 pub fn remove_from_inedx(file: String, repo: &Repository) -> Result<()> {
     let idx_path = repo.git_dir().join("index");
-    let mut idx = match Index::read(&idx_path) {
-        Ok(i) => i,
-        Err(e)
-            if e.downcast_ref::<io::Error>()
-                .is_some_and(|e| e.kind() == io::ErrorKind::NotFound) =>
-        {
-            Index::new()
-        }
-        Err(e) => return Err(e),
-    };
+    let mut idx = Index::read_or_new(&idx_path)?;
 
     idx.remove(file);
     idx.write(idx_path)?;

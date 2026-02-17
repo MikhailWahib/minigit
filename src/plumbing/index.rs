@@ -8,7 +8,7 @@ use std::io::Write;
 use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
-use std::{fmt, fs};
+use std::{fmt, fs, io};
 
 const SIGNATURE: [u8; 4] = *b"DIRC";
 const DEFAULT_VERSION: u32 = 2;
@@ -64,6 +64,23 @@ impl Index {
         let entries = Self::read_entries(&mut r, entries_count)?;
 
         Ok(Index { version, entries })
+    }
+
+    pub fn read_optional(path: impl AsRef<Path>) -> Result<Option<Self>> {
+        match Self::read(path) {
+            Ok(idx) => Ok(Some(idx)),
+            Err(e)
+                if e.downcast_ref::<io::Error>()
+                    .is_some_and(|e| e.kind() == io::ErrorKind::NotFound) =>
+            {
+                Ok(None)
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    pub fn read_or_new(path: impl AsRef<Path>) -> Result<Self> {
+        Ok(Self::read_optional(path)?.unwrap_or_else(Self::new))
     }
 
     fn read_entries(r: &mut Reader, entries_count: u32) -> Result<BTreeMap<String, IndexEntry>> {

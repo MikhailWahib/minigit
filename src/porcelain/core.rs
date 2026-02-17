@@ -122,16 +122,7 @@ pub fn read_head_commit(repo: &Repository) -> Result<Option<ObjectId>> {
 
 fn read_index(repo: &Repository) -> Result<Option<Index>> {
     let idx_path = repo.git_dir().join("index");
-    match Index::read(idx_path) {
-        Ok(idx) => Ok(Some(idx)),
-        Err(e)
-            if e.downcast_ref::<io::Error>()
-                .is_some_and(|e| e.kind() == io::ErrorKind::NotFound) =>
-        {
-            Ok(None)
-        }
-        Err(e) => Err(e),
-    }
+    Index::read_optional(idx_path)
 }
 
 fn get_head_tree_entries(repo: &Repository) -> Result<BTreeMap<String, [u8; 20]>> {
