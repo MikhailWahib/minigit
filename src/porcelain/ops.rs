@@ -8,7 +8,7 @@ use std::{
 use crate::{
     plumbing::{
         self,
-        ops::{commit_tree, hash_object, update_index, write_tree},
+        ops::{commit_tree, hash_object, update_index_batch, write_tree},
     },
     porcelain::{core, utils},
     repository::Repository,
@@ -35,6 +35,7 @@ pub fn add(paths: Vec<String>, repo: &Repository) -> Result<()> {
         utils::collect_files(&path, &ignore, &mut files)?;
     }
 
+    let mut staged_entries = Vec::with_capacity(files.len());
     for file in files {
         let file_path = file
             .strip_prefix(repo.work_tree())?
@@ -45,8 +46,9 @@ pub fn add(paths: Vec<String>, repo: &Repository) -> Result<()> {
             .to_str()
             .ok_or_else(|| anyhow!("File path is not valid UTF-8"))?;
         let object_id = hash_object(abs_path, true, repo)?;
-        update_index(100644, object_id, file_path.to_string(), repo)?;
+        staged_entries.push((100644, object_id, file_path.to_string()));
     }
+    update_index_batch(staged_entries, repo)?;
 
     Ok(())
 }
@@ -91,9 +93,7 @@ pub fn remove(paths: Vec<String>, repo: &Repository) -> Result<()> {
         })
         .collect();
 
-    for f in files {
-        plumbing::ops::remove_from_index(f, repo)?;
-    }
+    plumbing::ops::remove_from_index_batch(files, repo)?;
 
     Ok(())
 }

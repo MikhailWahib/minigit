@@ -99,20 +99,31 @@ pub fn ls_files(repo: &Repository) -> Result<Option<String>> {
 }
 
 pub fn update_index(mode: u32, object: ObjectId, file: String, repo: &Repository) -> Result<()> {
+    update_index_batch(vec![(mode, object, file)], repo)
+}
+
+pub fn update_index_batch(
+    entries: Vec<(u32, ObjectId, String)>,
+    repo: &Repository,
+) -> Result<()> {
     let idx_path = repo.index_path();
     let mut idx = Index::read_or_new(&idx_path)?;
 
-    idx.add(file, object.as_bytes(), mode, repo.work_tree())?;
+    for (mode, object, file) in entries {
+        idx.add(file, object.as_bytes(), mode, repo.work_tree())?;
+    }
     idx.write(idx_path)?;
 
     Ok(())
 }
 
-pub fn remove_from_index(file: String, repo: &Repository) -> Result<()> {
+pub fn remove_from_index_batch(files: Vec<String>, repo: &Repository) -> Result<()> {
     let idx_path = repo.index_path();
     let mut idx = Index::read_or_new(&idx_path)?;
 
-    idx.remove(file);
+    for file in files {
+        idx.remove(file);
+    }
     idx.write(idx_path)?;
 
     Ok(())
