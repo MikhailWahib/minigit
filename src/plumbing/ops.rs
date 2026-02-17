@@ -78,7 +78,7 @@ pub fn read_tree(object_id: ObjectId, repo: &Repository) -> Result<Vec<TreeEntry
         let (mode_str, name) = mode_and_name
             .split_once(' ')
             .ok_or_else(|| anyhow!("Invalid tree entry format"))?;
-        let mode = mode_str.parse::<u32>()?;
+        let mode = u32::from_str_radix(mode_str, 8)?;
 
         let object_id = ObjectId::from_bytes(reader.read_exact(20)?.try_into()?);
         let object_type = if mode == 0o040000 {

@@ -111,16 +111,16 @@ pub fn format_tree(data: &[u8]) -> Result<String> {
             return Err(anyhow!("Invalid tree entry format"));
         }
 
-        let mode: u32 = parts[0].parse()?;
+        let mode = u32::from_str_radix(parts[0], 8)?;
         let name = parts[1];
 
         let sha1 = reader.read_exact(20)?;
         let sha1_hex = hex::encode(sha1);
 
-        let obj_type = if mode == 40000 { "tree" } else { "blob" };
+        let obj_type = if mode == 0o040000 { "tree" } else { "blob" };
 
         output.push_str(&format!(
-            "{:06} {} {}\t{}\n",
+            "{:06o} {} {}\t{}\n",
             mode, obj_type, sha1_hex, name
         ));
     }

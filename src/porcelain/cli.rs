@@ -64,12 +64,7 @@ pub fn status(repo: &Repository) -> Result<()> {
     }
 
     if staged.is_empty() {
-        println!(
-            "{}",
-            output::red(
-                "no changes added to commit (use \"minigit add\" and/or \"minigit commit\")"
-            )
-        );
+        println!("no changes added to commit (use \"minigit add\" and/or \"minigit commit\")");
     }
     Ok(())
 }
