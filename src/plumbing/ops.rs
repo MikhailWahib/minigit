@@ -74,6 +74,25 @@ pub fn update_index(mode: u32, object: ObjectId, file: String, repo: &Repository
     Ok(())
 }
 
+pub fn remove_from_inedx(file: String, repo: &Repository) -> Result<()> {
+    let idx_path = repo.git_dir().join("index");
+    let mut idx = match Index::read(&idx_path) {
+        Ok(i) => i,
+        Err(e)
+            if e.downcast_ref::<io::Error>()
+                .is_some_and(|e| e.kind() == io::ErrorKind::NotFound) =>
+        {
+            Index::new()
+        }
+        Err(e) => return Err(e),
+    };
+
+    idx.remove(file);
+    idx.write(idx_path)?;
+
+    Ok(())
+}
+
 pub fn write_tree(repo: &Repository) -> Result<ObjectId> {
     let idx = Index::read(repo.git_dir().join("index"))?;
     let entries = idx.entries();

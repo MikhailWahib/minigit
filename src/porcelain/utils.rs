@@ -1,9 +1,8 @@
+use anyhow::Result;
 use std::{
     fs::DirEntry,
     path::{Path, PathBuf},
 };
-
-use anyhow::Result;
 
 pub fn collect_files(path: &Path, ignore: &[PathBuf], files: &mut Vec<PathBuf>) -> Result<()> {
     if is_ignored(path, ignore) {

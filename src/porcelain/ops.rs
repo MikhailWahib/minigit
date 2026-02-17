@@ -7,10 +7,10 @@ use std::{
 
 use crate::{
     plumbing::{
+        self,
         ops::{commit_tree, hash_object, update_index, write_tree},
     },
-    porcelain::core,
-    porcelain::utils,
+    porcelain::{core, utils},
     repository::Repository,
 };
 
@@ -66,4 +66,31 @@ pub fn commit(msg: String, repo: &Repository) -> Result<()> {
 pub fn status(repo: &Repository) -> Result<(Vec<String>, Vec<String>, Vec<(String, String)>)> {
     let changes = core::status_changes(repo)?;
     Ok((changes.untracked, changes.modified, changes.staged))
+}
+
+pub fn remove(paths: Vec<String>, repo: &Repository) -> Result<()> {
+    let worktree_path = repo.work_tree();
+    let ignore = repo.get_ignored()?;
+    let mut files = Vec::new();
+
+    for p in &paths {
+        let p = worktree_path.join(p);
+        utils::collect_files(&p, &ignore, &mut files)?;
+    }
+
+    let files: Vec<String> = files
+        .into_iter()
+        .filter_map(|p| {
+            p.strip_prefix(worktree_path)
+                .ok()?
+                .to_str()
+                .map(|s| s.to_string())
+        })
+        .collect();
+
+    for f in files {
+        plumbing::ops::remove_from_inedx(f, repo)?;
+    }
+
+    Ok(())
 }

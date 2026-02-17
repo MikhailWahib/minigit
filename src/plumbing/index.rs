@@ -149,6 +149,10 @@ impl Index {
         Ok(())
     }
 
+    pub fn remove(&mut self, file: String) {
+        self.entries.remove(&file);
+    }
+
     pub fn entries(&self) -> Vec<&IndexEntry> {
         self.entries.values().collect()
     }

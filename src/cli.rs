@@ -17,6 +17,7 @@ pub struct Cli {
     commands: Commands,
 }
 
+// TODO: remove, log
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// Initialize a new minigit repo
@@ -30,6 +31,8 @@ pub enum Commands {
     },
     /// Show the working tree status
     Status,
+    /// Unstage file(s) - eq. for `git restore --staged`
+    Remove { files: Vec<String> },
 
     /// Hash an object
     HashObject {
@@ -92,6 +95,9 @@ impl Cli {
             }
             Commands::Status => {
                 porcelain::cli::status(repo)?;
+            }
+            Commands::Remove { files } => {
+                porcelain::cli::remove(files, repo)?;
             }
             Commands::HashObject { object_path, write } => {
                 plumbing::cli::hash_object(&object_path, write, repo)?;
