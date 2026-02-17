@@ -178,3 +178,30 @@ fn path_to_rel_string(path: &Path, worktree: &Path) -> Result<String> {
         .ok_or_else(|| anyhow!("File path is not valid UTF-8"))?;
     Ok(value.to_string())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::path_to_rel_string;
+    use std::path::Path;
+
+    #[test]
+    fn converts_worktree_path_to_relative_string() {
+        let worktree = Path::new("/tmp/repo");
+        let file = Path::new("/tmp/repo/src/main.rs");
+
+        let rel = path_to_rel_string(file, worktree).expect("relative path");
+        assert_eq!(rel, "src/main.rs");
+    }
+
+    #[test]
+    fn fails_for_path_outside_worktree() {
+        let worktree = Path::new("/tmp/repo");
+        let file = Path::new("/tmp/other/file.txt");
+
+        let err = path_to_rel_string(file, worktree).expect_err("must fail");
+        assert!(
+            format!("{err}").contains("prefix"),
+            "unexpected error: {err}"
+        );
+    }
+}
