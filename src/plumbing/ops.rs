@@ -5,9 +5,16 @@ use std::path::Path;
 use super::core::{format_tree, hash_content, read_object, write_object, write_tree_recursive};
 use super::index::Index;
 use super::object::{ObjectId, ObjectType};
+use super::reader::Reader;
 use crate::plumbing::commit::Commit;
 use crate::plumbing::index_tree::IndexTree;
 use crate::repository::Repository;
+
+pub struct TreeEntryData {
+    pub name: String,
+    pub object_id: ObjectId,
+    pub object_type: ObjectType,
+}
 
 pub fn hash_object(object_path: &str, write: bool, repo: &Repository) -> Result<ObjectId> {
     let content = fs::read(object_path)
@@ -48,6 +55,41 @@ pub fn read_commit(object_id: ObjectId, repo: &Repository) -> Result<Commit> {
     }
 
     Commit::from_bytes(&body)
+}
+
+pub fn read_tree(object_id: ObjectId, repo: &Repository) -> Result<Vec<TreeEntryData>> {
+    let objects_dir = repo.git_dir().join("objects");
+    let (obj_type, body) = read_object(&object_id, &objects_dir)?;
+    if obj_type != ObjectType::Tree {
+        return Err(anyhow!(
+            "invalid object type for {object_id}: expected tree, got {obj_type}"
+        ));
+    }
+
+    let mut entries = Vec::new();
+    let mut reader = Reader::new(&body);
+    while !reader.is_eof() {
+        let mode_and_name = std::str::from_utf8(reader.read_until_nul()?)?;
+        let (mode_str, name) = mode_and_name
+            .split_once(' ')
+            .ok_or_else(|| anyhow!("Invalid tree entry format"))?;
+        let mode = mode_str.parse::<u32>()?;
+
+        let object_id = ObjectId::from_bytes(reader.read_exact(20)?.try_into()?);
+        let object_type = if mode == 0o040000 {
+            ObjectType::Tree
+        } else {
+            ObjectType::Blob
+        };
+
+        entries.push(TreeEntryData {
+            name: name.to_string(),
+            object_id,
+            object_type,
+        });
+    }
+
+    Ok(entries)
 }
 
 pub fn ls_files(repo: &Repository) -> Result<Option<String>> {

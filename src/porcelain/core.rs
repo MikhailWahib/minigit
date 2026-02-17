@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Result, anyhow};
 use std::{
     collections::BTreeMap,
     fs, io,
@@ -6,7 +6,11 @@ use std::{
 };
 
 use crate::{
-    plumbing::{index::Index, object::ObjectId, ops::cat_file},
+    plumbing::{
+        index::Index,
+        object::{ObjectId, ObjectType},
+        ops::{read_commit, read_tree},
+    },
     porcelain::utils,
     repository::Repository,
 };
@@ -146,16 +150,8 @@ fn get_head_tree_entries(repo: &Repository) -> Result<BTreeMap<String, [u8; 20]>
         return Ok(entries);
     };
 
-    if cat_file(commit_id, true, repo)? != "commit" {
-        bail!("HEAD does not point to a commit object");
-    }
-
-    let commit_body = cat_file(commit_id, false, repo)?;
-    let tree_hex = commit_body
-        .lines()
-        .find_map(|line| line.strip_prefix("tree "))
-        .ok_or_else(|| anyhow!("Malformed commit: missing tree header"))?;
-    let tree_id = ObjectId::from_hex(tree_hex)?;
+    let commit = read_commit(commit_id, repo)?;
+    let tree_id = commit.tree();
 
     collect_tree_entries(repo, tree_id, Path::new(""), &mut entries)?;
     Ok(entries)
@@ -167,35 +163,14 @@ fn collect_tree_entries(
     prefix: &Path,
     entries: &mut BTreeMap<String, [u8; 20]>,
 ) -> Result<()> {
-    if cat_file(tree_id, true, repo)? != "tree" {
-        bail!("Expected tree object while traversing HEAD tree");
-    }
-
-    let tree_listing = cat_file(tree_id, false, repo)?;
-    for line in tree_listing.lines() {
-        let (meta, name) = line
-            .split_once('\t')
-            .ok_or_else(|| anyhow!("Invalid tree listing line: missing tab separator"))?;
-
-        let mut meta_parts = meta.split_whitespace();
-        let _mode = meta_parts
-            .next()
-            .ok_or_else(|| anyhow!("Invalid tree listing line: missing mode"))?;
-        let entry_type = meta_parts
-            .next()
-            .ok_or_else(|| anyhow!("Invalid tree listing line: missing type"))?;
-        let sha_hex = meta_parts
-            .next()
-            .ok_or_else(|| anyhow!("Invalid tree listing line: missing object id"))?;
-
-        let sha = ObjectId::from_hex(sha_hex)?;
-        let path = prefix.join(name);
+    for entry in read_tree(tree_id, repo)? {
+        let path = prefix.join(&entry.name);
         let path_str = path.to_string_lossy().to_string();
 
-        if entry_type == "tree" {
-            collect_tree_entries(repo, sha, &path, entries)?;
+        if entry.object_type == ObjectType::Tree {
+            collect_tree_entries(repo, entry.object_id, &path, entries)?;
         } else {
-            entries.insert(path_str, sha.as_bytes());
+            entries.insert(path_str, entry.object_id.as_bytes());
         }
     }
 

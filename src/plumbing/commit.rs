@@ -84,6 +84,10 @@ impl Commit {
     pub fn parent(&self) -> Option<ObjectId> {
         self.parent
     }
+
+    pub fn tree(&self) -> ObjectId {
+        self.tree
+    }
 }
 
 impl fmt::Display for Commit {
