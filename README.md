@@ -2,79 +2,104 @@
 
 > A minimal implementation of Git written in Rust.
 
-`minigit` is a small version control system built to understand how Git works under the hood. It implements the core Git object model and provides both high-level "porcelain" commands for daily use and low-level "plumbing" commands for inspecting and manipulating the internal state.
+MiniGit is a small version control system built to understand how Git works under the hood. It has porcelain commands (`init`, `add`, `commit`, `status`, `log`, `remove`) and plumbing commands (`hash-object`, `cat-file`, `ls-files`, `update-index`, `write-tree`, `commit-tree`).
 
-One of the coolest features of `minigit` is **Git Mode** (`--git-mode`), which allows it to operate on existing `.git` repositories!
+It also supports **Git Mode** (`-g` / `--git-mode`) to operate on `.git` repositories.
 
-> NOTE: This project only works on UNIX-based systems and only tested on Linux.
-
-## Features
-
-- **Porcelain Commands**: Easy-to-use commands for standard workflows (`init`, `add`, `commit`, `status`, `log`, `remove`).
-- **Plumbing Commands**: Low-level tools to manipulate the object database directly (`hash-object`, `cat-file`, `ls-files`, `update-index`, `write-tree`, `commit-tree`).
-- **Interoperability**: Can read and write to real Git repositories using the global `-g` / `--git-mode` flag.
+> NOTE: This project works on UNIX-based systems and is tested on Linux.
 
 ## Installation
 
-You can build and install `minigit` from source using Cargo:
-
 ```bash
-# Clone the repository
 git clone https://github.com/MikhailWahib/minigit.git
 cd minigit
-
-# Build and install locally
 cargo install --path .
 ```
 
-Run help command:
-```bash
-minigit help
-```
-
-Or just run it directly:
+Or run directly:
 
 ```bash
-cargo run -- help
+cargo run -- --help
 ```
 
 ## Usage
 
-### Basic Workflow
-
-Initialize a new repository and make your first commit:
+### Command list (`minigit --help`)
 
 ```bash
-# Initialize a new .minigit repository
-minigit init
+$ minigit --help
+Usage: minigit [OPTIONS] <COMMAND>
 
-# Create a file
-echo "Hello, World!" > hello.txt
+Commands:
+  init          Initialize a new Minigit repository
+  add           Add file contents to the index
+  commit        Record changes to the repository
+  status        Show the working tree status
+  log           Show commit logs
+  remove        Unstage file(s) - equivalent to `git restore --staged`
+  hash-object   Compute the hash of an object
+  cat-file      Print the contents of a file in the Minigit database
+  ls-files      Print the index file
+  update-index  Update the index
+  write-tree    Create a tree object from the current index
+  commit-tree   Create a new commit object from the specified tree
+  help          Print this message or the help of the given subcommand(s)
 
-# Stage the file
-minigit add hello.txt
-
-# Check status
-minigit status
-
-# Commit changes
-minigit commit -m "Initial commit"
-
-# View history
-minigit log
+Options:
+  -g, --git-mode  Use .git as a root dir instead of .minigit; Used to test on real git repos
+  -h, --help      Print help
+  -V, --version   Print version
 ```
 
-### Git Mode
-This option is global, so you can place it after any subcommand.
-
-Use `--git-mode` (or `-g`) option to make `minigit` operate on `.git` repositories instead of `.minigit`. You can use this for any command!
+### Basic operations in `.minigit`
 
 ```bash
-# Long option
-minigit status --git-mode
+$ minigit init
+repo initialized at /tmp/minigit-readme-demo/native/.minigit
 
-# Short option
-minigit log -g
+$ printf 'Hello, World!\n' > hello.txt
+
+$ minigit add hello.txt
+
+$ minigit status
+Changes to be committed:
+  (use "minigit remove <file>..." to unstage)
+
+	new file:   hello.txt
+
+$ minigit commit -m 'Initial commit'
+
+$ minigit log
+commit 6c891b44577fc5ed29316bf9a5429c35c468962f
+Author: Mikhail <mikhailwahib1@gmail.com>
+Date:   Wed Feb 18 07:23:17 2026 +0200
+
+    Initial commit
 ```
 
-> Note: This option may not work properly on some repositories because **minigit** doesn't support **packfiles** so far. It's better to try it on small repositories.
+### Operate on `.git` using Git Mode
+
+```bash
+$ git init
+Initialized empty Git repository in /tmp/minigit-readme-demo/gitmode/.git/
+
+$ printf 'from git mode\n' > note.txt
+
+$ minigit add note.txt -g
+
+$ minigit status -g
+Changes to be committed:
+  (use "minigit remove <file>..." to unstage)
+
+	new file:   note.txt
+
+$ minigit commit -m 'Commit via minigit in git mode' -g
+
+$ git log --oneline -n 1
+4feefcc Commit via minigit in git mode
+```
+
+## Notes
+
+- Packfiles are not supported yet, so Git mode works best on small/fresh repos.
+- MiniGit uses existing Git global config for now, so you should have Git installed and configured on your machine.
