@@ -10,7 +10,7 @@ use crate::porcelain::{self};
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Cli {
-    /// Use .git as a root dir instead of .minigit. Used to test on real git repos
+    /// Use .git as a root dir instead of .minigit; Used to test on real git repos
     #[arg(long, short, global = true)]
     git_mode: bool,
 
@@ -20,7 +20,7 @@ pub struct Cli {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    /// Initialize a new minigit repo
+    /// Initialize a new Minigit repository
     Init,
     /// Add file contents to the index
     Add { paths: Vec<PathBuf> },
@@ -33,10 +33,10 @@ pub enum Commands {
     Status,
     /// Show commit logs
     Log,
-    /// Unstage file(s) - eq. for `git restore --staged`
+    /// Unstage file(s) - equivalent to `git restore --staged`
     Remove { files: Vec<PathBuf> },
 
-    /// Hash an object
+    /// Compute the hash of an object
     HashObject {
         #[arg(short, long)]
         /// Store the object in minigit database
@@ -44,7 +44,7 @@ pub enum Commands {
         /// Path for object
         object_path: PathBuf,
     },
-    /// Prints out the content of a given file in minigit database
+    /// Print the contents of a file in the Minigit database
     CatFile {
         /// Instead of the content, show the object type
         #[arg(short)]
@@ -52,17 +52,17 @@ pub enum Commands {
         /// The name of the object to show.
         object: String,
     },
-    /// Prints out index file
+    /// Print the index file
     LsFiles,
-    /// Updates the index
+    /// Update the index
     UpdateIndex {
         mode: String,
         object: String,
         path: PathBuf,
     },
-    /// Creates a tree object from the current index
+    /// Create a tree object from the current index
     WriteTree,
-    /// Creates a new commit object based on the provided tree object
+    /// Create a new commit object from the specified tree
     CommitTree {
         tree: String,
         #[arg(short)]
