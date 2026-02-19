@@ -52,7 +52,7 @@ pub fn add(paths: Vec<PathBuf>, repo: &Repository) -> Result<()> {
 
 pub fn commit(msg: String, repo: &Repository) -> Result<()> {
     if !core::has_staged_changes(repo)? {
-        bail!("no changes added to commit (use \"git add\" and/or \"git commit -a\")");
+        bail!("no changes added to commit (use \"minigit add\" and/or \"minigit commit -a\")");
     }
 
     let branch_head_path = core::head_ref_path(repo)?;
