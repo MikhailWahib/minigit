@@ -65,9 +65,8 @@ pub fn commit(msg: String, repo: &Repository) -> Result<()> {
     Ok(())
 }
 
-pub fn status(repo: &Repository) -> Result<(Vec<String>, Vec<String>, Vec<(String, String)>)> {
-    let changes = core::status_changes(repo)?;
-    Ok((changes.untracked, changes.modified, changes.staged))
+pub fn status(repo: &Repository) -> Result<core::StatusChanges> {
+    core::status_changes(repo)
 }
 
 pub fn remove(paths: Vec<PathBuf>, repo: &Repository) -> Result<()> {

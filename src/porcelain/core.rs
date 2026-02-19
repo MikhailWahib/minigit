@@ -108,13 +108,8 @@ pub fn head_ref_path(repo: &Repository) -> Result<PathBuf> {
 /// Returns the current branch name derived from `HEAD`.
 pub fn current_branch(repo: &Repository) -> Result<String> {
     let path = head_ref_path(repo)?;
-    let git_path = repo.git_dir();
-
     let branch = path
-        .strip_prefix(format!(
-            "{}/refs/heads/",
-            git_path.to_string_lossy().to_string()
-        ))?
+        .strip_prefix(repo.git_dir().join("refs/heads"))?
         .to_str()
         .ok_or_else(|| anyhow!("Malformed ref"))?;
 

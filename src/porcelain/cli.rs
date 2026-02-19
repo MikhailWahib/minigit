@@ -23,7 +23,11 @@ pub fn remove(paths: Vec<PathBuf>, repo: &Repository) -> Result<()> {
 }
 
 pub fn status(repo: &Repository) -> Result<()> {
-    let (mut untracked, mut modified, mut staged) = ops::status(repo)?;
+    let crate::porcelain::core::StatusChanges {
+        mut untracked,
+        mut modified,
+        mut staged,
+    } = ops::status(repo)?;
     untracked.sort();
     modified.sort();
     staged.sort_by(|a, b| a.1.cmp(&b.1).then(a.0.cmp(&b.0)));
