@@ -43,7 +43,7 @@ pub fn add(paths: Vec<PathBuf>, repo: &Repository) -> Result<()> {
             .ok_or_else(|| anyhow!("File path is not valid UTF-8"))?;
 
         let object_id = hash_object(&file, true, repo)?;
-        staged_entries.push((100644, object_id, file_path.to_string()));
+        staged_entries.push((0o100644, object_id, file_path.to_string()));
     }
     update_index_batch(staged_entries, repo)?;
 
