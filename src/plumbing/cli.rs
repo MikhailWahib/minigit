@@ -33,13 +33,17 @@ pub fn ls_files(repo: &Repository) -> Result<()> {
 }
 
 pub fn update_index(mode: &str, object: &str, path: PathBuf, repo: &Repository) -> Result<()> {
-    let mode_u32 = mode.parse::<u32>()?;
+    let mode_u32 = parse_mode(mode)?;
     let object_id = ObjectId::from_hex(object)?;
     let path = path
         .to_str()
         .ok_or_else(|| anyhow!("Path is not valid UTF-8"))?
         .to_string();
     ops::update_index(mode_u32, object_id, path, repo)
+}
+
+fn parse_mode(mode: &str) -> Result<u32> {
+    u32::from_str_radix(mode, 8).map_err(|_| anyhow!("invalid mode '{mode}': expected octal"))
 }
 
 pub fn write_tree(repo: &Repository) -> Result<String> {
