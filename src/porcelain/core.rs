@@ -82,6 +82,7 @@ pub fn status_changes(repo: &Repository) -> Result<StatusChanges> {
             untracked.push(rel_path);
         }
     }
+    modified.extend(missing_tracked_paths(index_map.keys(), worktree));
 
     Ok(StatusChanges {
         untracked,
@@ -183,10 +184,23 @@ fn path_to_rel_string(path: &Path, worktree: &Path) -> Result<String> {
     Ok(value.to_string())
 }
 
+fn missing_tracked_paths<'a, I>(tracked_paths: I, worktree: &Path) -> Vec<String>
+where
+    I: IntoIterator<Item = &'a String>,
+{
+    tracked_paths
+        .into_iter()
+        .filter(|path| !worktree.join(path).exists())
+        .cloned()
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
-    use super::path_to_rel_string;
+    use super::{missing_tracked_paths, path_to_rel_string};
+    use std::fs;
     use std::path::Path;
+    use tempfile::tempdir;
 
     #[test]
     fn converts_worktree_path_to_relative_string() {
@@ -207,5 +221,17 @@ mod tests {
             format!("{err}").contains("prefix"),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn reports_missing_tracked_paths() {
+        let tmp = tempdir().expect("tempdir");
+        let existing = tmp.path().join("exists.txt");
+        fs::write(&existing, "ok").expect("write existing file");
+
+        let tracked = vec!["exists.txt".to_string(), "missing.txt".to_string()];
+        let missing = missing_tracked_paths(tracked.iter(), tmp.path());
+
+        assert_eq!(missing, vec!["missing.txt".to_string()]);
     }
 }
