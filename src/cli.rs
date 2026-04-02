@@ -117,7 +117,7 @@ impl Cli {
                 plumbing::cli::update_index(&mode, &object, path, repo)?;
             }
             Commands::WriteTree => {
-                plumbing::cli::write_tree(repo)?;
+                println!("{}", plumbing::cli::write_tree(repo)?);
             }
             Commands::CommitTree {
                 tree,
